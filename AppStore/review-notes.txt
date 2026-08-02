@@ -1,0 +1,13 @@
+No account or sign-in is required. The game runs entirely offline — it has no
+networking code, no third-party SDKs, no ads and no in-app purchases. All
+progress is stored locally in UserDefaults.
+
+Progression: only the first world (Green Garden) is unlocked at the start;
+finishing a course unlocks the next world. If you want to see the later worlds
+without playing through the game, the Daily Challenge on the main menu draws its
+hole from all nine worlds, including the locked ones.
+
+Controls: drag your finger anywhere on the screen away from the ball to aim —
+the drag length sets the power — and release to putt. Pinch to zoom the camera.
+
+The app supports iPhone and iPad in both portrait and landscape.
