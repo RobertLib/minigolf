@@ -149,7 +149,7 @@ enum JungleCourse {
                 wall(-0.5, -1.8, -0.5, 0.5),
             ],
             obstacles: [
-                .ramp(center: SIMD2(0, -2.15), width: 0.9, length: 0.7, rise: 0.13, yaw: 0),
+                .ramp(center: SIMD2(0, -2.15), width: 1.0, length: 0.7, rise: 0.13, yaw: 0),
                 .conveyor(rect: zone(-0.5, 0.5, -3.3, -2.9), direction: SIMD2(1, 0),
                           strength: 1.6, y: 0.13),
             ],

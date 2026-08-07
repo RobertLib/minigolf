@@ -138,7 +138,7 @@ enum IceCourse {
                 wall(-0.5, -4.0, -0.5, -2.0, height: 0.26),
                 wall(-0.5, -2.0, -0.5, 0.5),
             ],
-            obstacles: [.ramp(center: SIMD2(0, -2.35), width: 0.9, length: 0.7, rise: 0.13, yaw: 0)],
+            obstacles: [.ramp(center: SIMD2(0, -2.35), width: 1.0, length: 0.7, rise: 0.13, yaw: 0)],
             bonusStar: SIMD2(0.36, -3.9), bonusStarY: 0.13,
             cameraZoom: 1.3
         ),

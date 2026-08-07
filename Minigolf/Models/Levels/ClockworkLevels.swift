@@ -223,7 +223,7 @@ enum ClockworkCourse {
                       period: 2.0, phase: 0, baseY: 0),
                 .turntable(center: SIMD2(0, -2.5), radius: 0.5, speed: 1.5, y: 0),
                 .cannon(center: SIMD2(-0.85, -2.2), direction: SIMD2(1, -0.5), speed: 2.8, y: 0),
-                .ramp(center: SIMD2(0, -3.55), width: 0.9, length: 0.7, rise: 0.14, yaw: 0),
+                .ramp(center: SIMD2(0, -3.55), width: 1.0, length: 0.7, rise: 0.14, yaw: 0),
                 .movingBlock(center: SIMD2(0, -4.2), axis: SIMD2(1, 0), amplitude: 0.22,
                              speed: 1.8, size: SIMD2(0.28, 0.12), baseY: 0.14),
             ],

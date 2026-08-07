@@ -174,7 +174,7 @@ enum StormCourse {
                 wall(0.5, -1.9, 0.5, 0.5),
             ],
             obstacles: [
-                .ramp(center: SIMD2(0, -2.25), width: 0.9, length: 0.7, rise: 0.14, yaw: 0),
+                .ramp(center: SIMD2(0, -2.25), width: 1.0, length: 0.7, rise: 0.14, yaw: 0),
                 .fan(rect: zone(-0.5, 0.5, -3.9, -3.2), direction: SIMD2(0, 1),
                      strength: 1.6, period: 2.6, phase: 0, y: 0.14),
             ],
@@ -232,7 +232,7 @@ enum StormCourse {
                            lift: 1.7, y: 0),
                 .pendulum(center: SIMD2(0.55, -2.75), span: 0.55, arc: 0.75, speed: 1.7,
                           yaw: .pi / 2, baseY: 0),
-                .ramp(center: SIMD2(1.3, -3.65), width: 0.55, length: 0.7, rise: 0.14, yaw: 0),
+                .ramp(center: SIMD2(1.3, -3.65), width: 0.6, length: 0.7, rise: 0.14, yaw: 0),
             ],
             bonusStar: SIMD2(-0.45, -3.05),
             cameraZoom: 1.5
