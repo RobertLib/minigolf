@@ -164,6 +164,12 @@ final class GameSceneCoordinator {
 
     private var elapsed: Float = 0
     private var lastBounceSound: Float = -1
+    private var lastImpactHaptic: Float = -1
+    /// Floor on the gap between impact haptics. Sound is posted to a background
+    /// queue and can layer freely, but `impactOccurred` runs on the main thread
+    /// in the middle of the frame, and the Taptic Engine cannot resolve taps this
+    /// close together anyway.
+    private let hapticInterval: Float = 0.09
 
     #if DEBUG
     private let autoshot = ProcessInfo.processInfo.arguments.contains("-autoshot")
@@ -526,7 +532,13 @@ final class GameSceneCoordinator {
             return
         }
 
-        state = .aiming
+        if state != .aiming {
+            state = .aiming
+            // Lining up a shot is the cue that impacts are coming: the strike
+            // itself, then whatever the ball finds. Warming the engine here is
+            // what lets the first of those be felt on the frame it happens.
+            Haptics.shared.prepare()
+        }
         aimDirection = simd_normalize(SIMD3(-dx, 0, -dy))
         aimPower = min(1, (length - 12) / 230)
 
@@ -1386,14 +1398,26 @@ final class GameSceneCoordinator {
                 ball.applyLinearImpulse(direction * 0.014, relativeTo: nil)
             }
             SoundManager.shared.play(.bumper, volume: 0.85)
-            Haptics.shared.impact(intensity: 0.6)
+            throttledHaptic { Haptics.shared.impact(intensity: 0.6) }
             flash(other)
         } else if event.impulse > 0.0035, elapsed - lastBounceSound > 0.09 {
             lastBounceSound = elapsed
             let volume = min(1, Float(event.impulse) * 55)
             SoundManager.shared.play(.bounce, volume: 0.2 + 0.8 * volume)
-            if volume > 0.4 { Haptics.shared.light() }
+            if volume > 0.4 { throttledHaptic { Haptics.shared.light() } }
         }
+    }
+
+    /// One impact haptic per `hapticInterval`, whichever surface asked for it.
+    ///
+    /// The bumper kick and the felt rebound are gameplay and stay unconditional;
+    /// only the feel is rationed. A ball rattling inside a cluster of bumpers
+    /// raises a collision event per board it touches, and every one of those used
+    /// to buy a synchronous trip to the haptic engine from inside the frame.
+    private func throttledHaptic(_ fire: () -> Void) {
+        guard elapsed - lastImpactHaptic > hapticInterval else { return }
+        lastImpactHaptic = elapsed
+        fire()
     }
 
     /// The solver ignores restitution below its own bounce threshold, which sits

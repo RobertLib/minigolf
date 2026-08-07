@@ -43,37 +43,67 @@ final class SoundManager {
 
     static let shared = SoundManager()
 
-    /// Ready-to-play voices per effect, round-robined by `play`.
+    /// Everything that touches an `AVAudioPlayer` runs here, and nothing else
+    /// does.
+    ///
+    /// Neither `play()` nor rewinding with `currentTime = 0` is cheap: one starts
+    /// an audio queue, the other flushes and re-primes its buffers, and both talk
+    /// to the audio server, so either can hold up the caller for a millisecond or
+    /// more. Effects are asked for from the RealityKit update and collision
+    /// callbacks, which run on the main thread inside the frame — so that stall
+    /// used to land in the frame, and the game genuinely ran smoother with sound
+    /// switched off. Posting the work here instead leaves the main thread with a
+    /// flag test and a `dispatch_async`.
+    ///
+    /// The queue is serial, which also orders `preload` ahead of every playback
+    /// block: loading can start off the main thread during launch without the
+    /// first tap arriving to find an empty bank.
+    private let queue = DispatchQueue(label: "minigolf.sound", qos: .userInitiated)
+
+    /// Ready-to-play voices per effect, round-robined by `play`. Owned by
+    /// `queue`.
     ///
     /// Building an `AVAudioPlayer` parses the file and spins up an audio unit,
-    /// and the first `play()` on a fresh one finishes that setup — a few
-    /// milliseconds on whichever thread asked for it. Effects are triggered from
-    /// the physics callbacks, so that thread is the one rendering the scene: a
-    /// player made per sound put its cost straight into the frame. Every voice
-    /// is therefore built and primed once, up front.
+    /// and `prepareToPlay` allocates its buffers — work worth doing once rather
+    /// than on the frame that wants the sound. Every voice is therefore built and
+    /// primed up front, the music track included.
     private var voices: [SoundEffect: [AVAudioPlayer]] = [:]
     private var nextVoice: [SoundEffect: Int] = [:]
     private var musicPlayer: AVAudioPlayer?
 
+    /// The settings toggles, mirrored in memory. `soundEnabled` is read on every
+    /// single effect — several times a frame while a ball rattles along the
+    /// boards — which is no place for a `UserDefaults` lookup. Main thread only.
+    private var soundOn: Bool
+    private var musicOn: Bool
+
     var soundEnabled: Bool {
-        get { UserDefaults.standard.object(forKey: "minigolf.sound") as? Bool ?? true }
+        get { soundOn }
         set {
+            soundOn = newValue
             UserDefaults.standard.set(newValue, forKey: "minigolf.sound")
         }
     }
 
     var musicEnabled: Bool {
-        get { UserDefaults.standard.object(forKey: "minigolf.music") as? Bool ?? true }
+        get { musicOn }
         set {
+            musicOn = newValue
             UserDefaults.standard.set(newValue, forKey: "minigolf.music")
             if newValue { playMusic() } else { stopMusic() }
         }
     }
 
     private init() {
-        try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
-        try? AVAudioSession.sharedInstance().setActive(true)
-        preload()
+        let defaults = UserDefaults.standard
+        soundOn = defaults.object(forKey: "minigolf.sound") as? Bool ?? true
+        musicOn = defaults.object(forKey: "minigolf.music") as? Bool ?? true
+
+        queue.async { [self] in
+            try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
+            try? AVAudioSession.sharedInstance().setActive(true)
+            preload()
+        }
     }
 
     private func preload() {
@@ -91,34 +121,49 @@ final class SoundManager {
             voices[effect] = players
             nextVoice[effect] = 0
         }
+
+        if let url = Bundle.main.url(forResource: "music", withExtension: "wav"),
+           let player = try? AVAudioPlayer(contentsOf: url) {
+            player.numberOfLoops = -1
+            player.volume = 0.22
+            player.prepareToPlay()
+            musicPlayer = player
+        }
     }
 
     func play(_ effect: SoundEffect, volume: Float = 1.0) {
-        guard soundEnabled, let players = voices[effect], !players.isEmpty else { return }
+        guard soundOn else { return }
+        let level = min(max(volume, 0), 1)
 
-        // Round-robin, so a retrigger layers over the tail of the one before it
-        // rather than cutting it off mid-sound.
-        let index = nextVoice[effect] ?? 0
-        nextVoice[effect] = (index + 1) % players.count
+        queue.async { [self] in
+            guard let players = voices[effect], !players.isEmpty else { return }
 
-        let player = players[index]
-        player.volume = min(max(volume, 0), 1)
-        player.currentTime = 0
-        player.play()
+            // Round-robin, so a retrigger layers over the tail of the one before
+            // it rather than cutting it off mid-sound.
+            let index = nextVoice[effect] ?? 0
+            nextVoice[effect] = (index + 1) % players.count
+
+            let player = players[index]
+            player.volume = level
+            player.currentTime = 0
+            player.play()
+        }
     }
 
     func playMusic() {
-        guard musicEnabled else { return }
-        if let musicPlayer, musicPlayer.isPlaying { return }
-        guard let url = Bundle.main.url(forResource: "music", withExtension: "wav") else { return }
-        musicPlayer = try? AVAudioPlayer(contentsOf: url)
-        musicPlayer?.numberOfLoops = -1
-        musicPlayer?.volume = 0.22
-        musicPlayer?.play()
+        guard musicOn else { return }
+        queue.async { [self] in
+            guard let musicPlayer, !musicPlayer.isPlaying else { return }
+            musicPlayer.play()
+        }
     }
 
+    /// Pauses rather than discards: the track is a 16-second loop kept primed for
+    /// the whole session, so toggling music back on costs nothing and does not
+    /// re-parse the file.
     func stopMusic() {
-        musicPlayer?.stop()
-        musicPlayer = nil
+        queue.async { [self] in
+            musicPlayer?.pause()
+        }
     }
 }
