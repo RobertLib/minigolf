@@ -532,8 +532,11 @@ enum ObstacleBuilder {
         }
         root.addChild(arrows)
 
+        // A bank only creeps: a ball that stops on one is nudged on its way
+        // rather than carried, the way it would trickle down a real slope.
         outputs.forceZones.append(ForceZone(
-            rect: rect, y: y, force: unit * strength * GamePhysics.ballMass))
+            rect: rect, y: y, force: unit * strength * GamePhysics.ballMass,
+            carry: unit * (strength * 0.28)))
     }
 
     /// Belt: a recessed bed with chevrons riding along it, plus a much stronger
@@ -551,6 +554,9 @@ enum ObstacleBuilder {
 
         let unit = simd_length(direction) > 0 ? simd_normalize(direction) : SIMD2(1, 0)
         let travel = abs(unit.x) * size.x + abs(unit.y) * size.y
+        // The speed of the bed itself: the chevrons run at it, and so does a
+        // ball the belt has picked up.
+        let running = max(0.35, strength * 0.45)
         let belt = Entity()
         belt.position = SIMD3(rect.center.x, y + 0.007, rect.center.y)
         belt.orientation = simd_quatf(angle: yaw(for: unit), axis: SIMD3(0, 1, 0))
@@ -568,12 +574,13 @@ enum ObstacleBuilder {
             }
             rider.addChild(strip)
             outputs.animated.append(AnimatedObstacle(
-                kind: .belt(length: travel, speed: max(0.35, strength * 0.45)), entity: strip))
+                kind: .belt(length: travel, speed: running), entity: strip))
         }
         root.addChild(belt)
 
         outputs.forceZones.append(ForceZone(
-            rect: rect, y: y, force: unit * strength * GamePhysics.ballMass))
+            rect: rect, y: y, force: unit * strength * GamePhysics.ballMass,
+            carry: unit * running))
     }
 
     // MARK: Teleporter

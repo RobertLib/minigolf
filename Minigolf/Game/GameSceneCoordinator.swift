@@ -70,6 +70,12 @@ final class GameSceneCoordinator {
     private var lastBounceTime: Float = -1
     private var restTimer: Float = 0
     private var motionTime: Float = 0
+    /// Where the ball was when the zone under it last took stock, how long ago
+    /// that was, and whether the zone has given up on shifting it — a belt
+    /// running into a wall has to let the ball settle in the end.
+    private var zoneAnchor: SIMD3<Float>?
+    private var zoneStall: Float = 0
+    private var zoneBlocked = false
     private var currentSpeed: Float = 0
     private var lastRestPosition = SIMD3<Float>(0, 0, 0)
     /// Damping currently written into the ball's body, so surface changes are
@@ -364,6 +370,14 @@ final class GameSceneCoordinator {
                 restTimer = 0
                 motionTime = 0
             }
+            // Same for a ball standing on a belt or a banked green: the arrows
+            // under it are supposed to be taking it somewhere.
+            if state == .waiting, liftFromForceZone() {
+                state = .ballMoving
+                hideAim()
+                restTimer = 0
+                motionTime = 0
+            }
             // An obstacle may push a resting ball back into motion.
             if currentSpeed > 0.18 {
                 state = .ballMoving
@@ -392,7 +406,7 @@ final class GameSceneCoordinator {
                 lastBallPosition = ball.position
             }
             applyHoleMagnet(dt: dt)
-            applyForceZones()
+            applyForceZones(dt: dt)
             applyWind()
             applyTurntables()
             applyMagnets()
@@ -405,7 +419,9 @@ final class GameSceneCoordinator {
             checkOutOfBounds()
 
             if motionTime > 0.25 {
-                if currentSpeed < 0.05 {
+                // A belt still working on the ball holds off the settle: it is
+                // about to move it, or it is about to give up and say so.
+                if currentSpeed < 0.05, !zoneStillTrying {
                     restTimer += dt
                 } else {
                     restTimer = 0
@@ -640,6 +656,7 @@ final class GameSceneCoordinator {
         hideAim()
         restTimer = 0
         motionTime = 0
+        releaseZone()
         aimPower = 0
     }
 
@@ -807,17 +824,108 @@ final class GameSceneCoordinator {
     }
 
     /// Banked greens, belts and currents: a steady push while the ball rolls
-    /// through the zone. Only while it is moving — a ball parked on a belt would
-    /// never settle, and the stroke limit is only enforced once it does.
-    private func applyForceZones() {
+    /// through the zone.
+    ///
+    /// The push alone cannot keep it going. A ball that runs out of pace on the
+    /// arrows is held there by static friction — at putting scale that is worth
+    /// several times anything a zone pushes with — and the solver then parks the
+    /// body, after which it ignores force outright. So a ball slower than the
+    /// surface under it is dragged up to that speed instead of pushed, and the
+    /// belt carries it off the way its chevrons say it should.
+    private func applyForceZones(dt: Float) {
         guard let built, !built.forceZones.isEmpty else { return }
         let ball = built.ball
-        for zone in built.forceZones {
-            guard zone.rect.contains(ball.position.xz),
-                  abs(ball.position.y - (zone.y + GamePhysics.ballRadius)) < 0.05
-            else { continue }
+        var carried = false
+
+        for zone in built.forceZones where zoneHolds(zone, ball: ball) {
+            carried = true
             ball.addForce(SIMD3(zone.force.x, 0, zone.force.y), relativeTo: nil)
+            guard !zoneBlocked, let surface = zoneSurface(zone) else { continue }
+            // How much the ball is slipping on the surface decides how much of
+            // it the surface can hand over: a standing ball is taken up to the
+            // full speed of the belt, one already going that fast is left alone,
+            // and everything between is dragged in proportion — so a putt
+            // crossing the arrows bends instead of snapping into line with them.
+            let slip = 1 - simd_length(ballVelocity.xz) / surface.speed
+            guard slip > 0 else { continue }
+            let target = surface.speed * slip
+            let along = simd_dot(ballVelocity.xz, surface.direction)
+            guard along < target else { continue }
+            let grab = surface.direction * ((target - along) * GamePhysics.ballMass)
+            ball.applyLinearImpulse(SIMD3(grab.x, 0, grab.y), relativeTo: nil)
         }
+
+        if carried {
+            trackZoneHeadway(dt: dt, position: ball.position)
+        } else {
+            releaseZone()
+        }
+    }
+
+    /// True while the ball is standing on this zone's patch of floor.
+    private func zoneHolds(_ zone: ForceZone, ball: ModelEntity) -> Bool {
+        zone.rect.contains(ball.position.xz)
+            && abs(ball.position.y - (zone.y + GamePhysics.ballRadius)) < 0.05
+    }
+
+    /// How the surface itself is moving, or nil for a zone that only pushes.
+    private func zoneSurface(_ zone: ForceZone) -> (direction: SIMD2<Float>, speed: Float)? {
+        let speed = simd_length(zone.carry)
+        guard speed > 0.001 else { return nil }
+        return (zone.carry / speed, speed)
+    }
+
+    /// Watches whether the zone is actually getting the ball anywhere. A belt
+    /// running into a wall has to give up and let the ball settle, or the stroke
+    /// limit — judged only once it rests — would never come round. Once it does
+    /// give up the ball is left alone until the next stroke frees it.
+    private func trackZoneHeadway(dt: Float, position: SIMD3<Float>) {
+        guard let anchor = zoneAnchor else {
+            zoneAnchor = position
+            zoneStall = 0
+            return
+        }
+        zoneStall += dt
+        guard zoneStall > GamePhysics.zoneStallWindow else { return }
+        zoneBlocked = simd_distance(anchor, position) < GamePhysics.zoneStallHeadway
+        zoneAnchor = position
+        zoneStall = 0
+    }
+
+    /// True while a zone has hold of the ball and has not given up on it.
+    private var zoneStillTrying: Bool { zoneAnchor != nil && !zoneBlocked }
+
+    /// Forgets the zone the ball was on: it has left one, or a stroke has given
+    /// a blocked ball a fresh chance to get away.
+    private func releaseZone() {
+        zoneAnchor = nil
+        zoneStall = 0
+        zoneBlocked = false
+    }
+
+    /// Picks up a ball that is already standing on a belt or a banked green —
+    /// teed up on the arrows, or parked there when a shot ran out of patience.
+    /// The solver has stopped listening to that body by then, so it is rebuilt
+    /// with the surface's speed already in it, the way a portal hands the ball
+    /// out of the far ring. A ball the belt has given up on is left where it is:
+    /// picking it up again every time it settled would leave it twitching on the
+    /// boards with no way to putt.
+    private func liftFromForceZone() -> Bool {
+        guard let built, !built.forceZones.isEmpty, !zoneBlocked else { return false }
+        let ball = built.ball
+
+        for zone in built.forceZones where zoneHolds(zone, ball: ball) {
+            guard zoneSurface(zone) != nil else { continue }
+            let velocity = SIMD3(zone.carry.x, 0, zone.carry.y)
+
+            releaseZone()
+            teleportBall(to: ball.position)
+            pendingWarpVelocity = velocity
+            ballVelocity = velocity
+            previousBallVelocity = velocity
+            return true
+        }
+        return false
     }
 
     /// Portals fire once and then stay dormant until the ball has left both
@@ -1338,6 +1446,7 @@ final class GameSceneCoordinator {
         // full run-out.
         motionTime = 10
         restTimer = 0.3
+        releaseZone()
     }
 
     /// Moves the ball and zeroes its velocity by rebuilding the physics body.

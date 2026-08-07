@@ -74,6 +74,16 @@ enum GamePhysics {
     /// for long, so the table always works it out to the rim and hands it back
     /// instead of parking it in the middle for good.
     static let turntableSpill: Float = 0.18
+
+    /// How long a belt or a banked green is given to get the ball somewhere,
+    /// and how far it has to have carried it by the end of that to count as
+    /// getting anywhere. A belt that runs into a wall has to give up: the ball
+    /// must be allowed to settle, or the stroke limit — judged only once it
+    /// does — would never come round. Headway is measured over the whole
+    /// window, so a ball knocking against the boards at the end of a belt does
+    /// not read as progress.
+    static let zoneStallWindow: Float = 0.35
+    static let zoneStallHeadway: Float = 0.025
 }
 
 /// The chase camera's rig. Shared with the scene builder, which cannot size the
@@ -111,6 +121,11 @@ struct ForceZone {
     var y: Float
     /// Force in newtons, already scaled by the ball's mass.
     var force: SIMD2<Float>
+    /// Speed the surface itself runs at — a belt keeps step with its chevrons,
+    /// a banked green only creeps. A ball slower than this is dragged up to it
+    /// rather than pushed, since the push alone cannot start a ball that has
+    /// stopped: see `GamePhysics.zoneStallWindow`.
+    var carry: SIMD2<Float>
 }
 
 /// A pair of rings that throw the ball from one to the other.
