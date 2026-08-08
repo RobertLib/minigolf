@@ -103,6 +103,13 @@ enum Prim {
 
     private static var roundedBoxes: [RoundedBoxKey: MeshResource] = [:]
 
+    /// Drops the generated corner-radius meshes. The four unit meshes stay:
+    /// they are `static let`, they are shared by everything, and between them
+    /// they come to a few kilobytes. See `AssetCaches`.
+    static func purge() {
+        roundedBoxes.removeAll()
+    }
+
     private struct RoundedBoxKey: Hashable {
         var width: Float, height: Float, depth: Float, cornerRadius: Float
 

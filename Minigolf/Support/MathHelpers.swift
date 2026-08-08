@@ -80,6 +80,13 @@ struct GroundRect {
         p.y >= minZ - margin && p.y <= maxZ + margin
     }
 
+    /// How far a point lies outside the rectangle: nought anywhere inside it.
+    func distance(to p: SIMD2<Float>) -> Float {
+        let x = Swift.max(minX - p.x, 0, p.x - maxX)
+        let z = Swift.max(minZ - p.y, 0, p.y - maxZ)
+        return simd_length(SIMD2(x, z))
+    }
+
     func expanded(by amount: Float) -> GroundRect {
         GroundRect(x0: minX - amount, x1: maxX + amount, z0: minZ - amount, z1: maxZ + amount)
     }

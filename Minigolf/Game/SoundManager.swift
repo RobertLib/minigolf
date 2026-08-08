@@ -8,9 +8,15 @@
 //
 
 import Foundation
-import AVFoundation
+// `@preconcurrency` because AVFAudio predates Sendable: an `AVAudioPlayer` is
+// perfectly happy being used from one queue, but nothing in the type says so.
+// Without this every hand-off of a player or a buffer to `queue` is a warning
+// about a rule this file already keeps by hand.
+@preconcurrency import AVFoundation
 
-enum SoundEffect: String, CaseIterable {
+/// `nonisolated` so the name of an effect, and how many voices it wants, can be
+/// read on the audio queue as well as at the call site that asks for it.
+nonisolated enum SoundEffect: String, CaseIterable {
     case tap
     case hit
     case bounce
@@ -40,7 +46,15 @@ enum SoundEffect: String, CaseIterable {
     }
 }
 
-final class SoundManager {
+/// `nonisolated`, and `Sendable` on the strength of the queue below rather than
+/// of anything the compiler can see.
+///
+/// Everything else in the app runs on the main actor and should. This does not:
+/// the whole point of the queue is that starting a sound never happens on the
+/// thread rendering the frame that asked for it. Left to the default isolation
+/// the type would claim to be main-actor while `preload` ran on `queue`, which
+/// is not a style question — Swift 6 checks that claim at runtime and traps.
+nonisolated final class SoundManager: @unchecked Sendable {
 
     static let shared = SoundManager()
 

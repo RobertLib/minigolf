@@ -16,15 +16,44 @@ enum DailyChallenge {
         var hole: Int
     }
 
+    /// How many days of the chain a pick is resolved against. Yesterday's hole
+    /// may itself have been a re-draw, so knowing it means resolving it, which
+    /// means knowing the day before — the rule is only exact if the chain is
+    /// walked back to the beginning of time.
+    ///
+    /// It is walked back four days instead. Each further day only matters if
+    /// every day between collided, which is a 1-in-108 event compounded, so the
+    /// first day this could still get wrong is somewhere past the year 5000.
+    /// Four days is four draws and four date computations, once per menu.
+    private static let chainDepth = 4
+
     /// Today's hole. Derived from the calendar day alone, so it is stable across
     /// launches and identical on every device.
     static func pick(for day: String = GameDay.key()) -> Pick {
-        var candidate = draw(seed: seed(for: day))
-        // Never hand out the same hole two days running.
-        if let previous = previousDay(day), candidate == draw(seed: seed(for: previous)) {
-            candidate = draw(seed: seed(for: day) &* 31 &+ 7)
-        }
-        return candidate
+        resolve(day, depth: chainDepth)
+    }
+
+    /// The hole for `day`, guaranteed different from the one `depth` days of
+    /// chain say came before it.
+    private static func resolve(_ day: String, depth: Int) -> Pick {
+        let candidate = draw(seed: seed(for: day))
+        guard depth > 0, let previous = previousDay(day) else { return candidate }
+
+        // Yesterday as it will really be played, not as it was first drawn —
+        // comparing against the raw draw is what used to let a re-drawn day be
+        // handed straight back the next morning.
+        let before = resolve(previous, depth: depth - 1)
+        guard candidate == before else { return candidate }
+
+        // Never hand out the same hole two days running. A re-draw can collide
+        // again, so it keeps going; with 108 holes it practically never does.
+        var salt: UInt64 = 0
+        var replacement = candidate
+        repeat {
+            salt &+= 1
+            replacement = draw(seed: seed(for: day) &+ salt &* 0x9E37_79B9_7F4A_7C15)
+        } while replacement == before
+        return replacement
     }
 
     static func level(for day: String = GameDay.key()) -> LevelDefinition {

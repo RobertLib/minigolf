@@ -16,6 +16,59 @@ enum AppInfo {
         .object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0"
 }
 
+// MARK: - Dynamic Type
+
+/// A point size that still answers to Dynamic Type.
+///
+/// SwiftUI only offers `relativeTo:` for custom fonts — `Font.system(size:)` is
+/// frozen at whatever it is handed, which is why a layout tuned in points stays
+/// put while the rest of iOS grows with the reader's text size. `@ScaledMetric`
+/// runs the same `UIFontMetrics` curve by hand, so these views keep the
+/// proportions they were drawn with at the default size and scale from there.
+private struct ScaledFont: ViewModifier {
+    @ScaledMetric private var size: CGFloat
+    private let weight: Font.Weight
+    private let design: Font.Design
+
+    init(size: CGFloat, weight: Font.Weight, design: Font.Design,
+         relativeTo textStyle: Font.TextStyle) {
+        _size = ScaledMetric(wrappedValue: size, relativeTo: textStyle)
+        self.weight = weight
+        self.design = design
+    }
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: size, weight: weight, design: design))
+    }
+}
+
+extension View {
+    /// `.font(.system(size:))` that grows with the reader's text size.
+    ///
+    /// `relativeTo` picks the curve, not the size: small print scales faster
+    /// than display type does, so a caption tracks `.caption` and a headline
+    /// number tracks `.title`.
+    func scaledFont(_ size: CGFloat,
+                    weight: Font.Weight = .regular,
+                    design: Font.Design = .default,
+                    relativeTo textStyle: Font.TextStyle = .body) -> some View {
+        modifier(ScaledFont(size: size, weight: weight, design: design,
+                            relativeTo: textStyle))
+    }
+}
+
+// MARK: - VoiceOver announcements
+
+/// Speaks a message through VoiceOver, if it is listening.
+///
+/// For the banners that come and go on a timer. A toast is off screen again
+/// within two and a half seconds, which is not long enough to swipe over and
+/// find it, so it has to come to the listener rather than wait to be read.
+func announce(_ message: String?) {
+    guard let message, !message.isEmpty else { return }
+    AccessibilityNotification.Announcement(message).post()
+}
+
 // MARK: - Button styles
 
 struct PrimaryButtonStyle: ButtonStyle {
@@ -105,16 +158,20 @@ struct StarsView: View {
         HStack(spacing: 8) {
             ForEach(0..<max, id: \.self) { i in
                 Image(systemName: i < count ? "star.fill" : "star")
-                    .font(.system(size: size))
+                    .scaledFont(size, relativeTo: .title)
                     .foregroundStyle(i < count
                                      ? AnyShapeStyle(.yellow.gradient)
                                      : AnyShapeStyle(.white.opacity(0.35)))
-                    .scaleEffect(appeared ? 1 : 0.2)
-                    .animation(.spring(response: 0.4, dampingFraction: 0.55)
-                        .delay(Double(i) * 0.18), value: appeared)
+                    .popIn(appeared, from: 0.2,
+                           animation: .spring(response: 0.4, dampingFraction: 0.55)
+                               .delay(Double(i) * 0.18))
             }
         }
         .onAppear { appeared = true }
+        // One rating, not three icons: read on its own, an empty star says
+        // nothing, and VoiceOver would spell out the row a symbol at a time.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(count) out of \(max) stars"))
     }
 }
 
@@ -128,10 +185,12 @@ struct LivesView: View {
         HStack(spacing: 3) {
             ForEach(0..<max, id: \.self) { i in
                 Image(systemName: i < lives ? "heart.fill" : "heart")
-                    .font(.system(size: 15, weight: .bold))
+                    .scaledFont(15, weight: .bold, relativeTo: .subheadline)
                     .foregroundStyle(i < lives ? .red : .white.opacity(0.4))
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(lives) of \(max) lives left"))
     }
 }
 
@@ -140,21 +199,32 @@ struct LivesView: View {
 struct HUDChip: View {
     var text: String
     var systemImage: String?
+    /// What VoiceOver reads instead of the bare text. A chip like "252/324"
+    /// only means something next to the star it sits beside, and that star is
+    /// decoration — so chips whose text does not stand alone spell it out here.
+    var voiceOverLabel: Text?
 
     var body: some View {
         HStack(spacing: 5) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 12, weight: .bold))
+                    .scaledFont(12, weight: .bold, relativeTo: .caption)
             }
             Text(text)
                 .font(.system(.subheadline, design: .rounded, weight: .bold))
                 .monospacedDigit()
+                // A chip is a short reading — "252/324", "Par 35" — and wrapping
+                // one splits the number across two lines, which reads as two
+                // numbers. It shrinks to fit its row instead.
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
         }
         .foregroundStyle(.white)
         .padding(.vertical, 7)
         .padding(.horizontal, 12)
         .background(Capsule().fill(.black.opacity(0.35)))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(voiceOverLabel ?? Text(text))
     }
 }
 

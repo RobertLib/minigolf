@@ -183,8 +183,10 @@ final class GameController {
         // into a hole; used by automated smoke tests.
         let args = ProcessInfo.processInfo.arguments
 
-        // `-unlockall` fills in plausible progress for menu screenshots. It is
-        // never written back to disk.
+        // `-unlockall` fills in plausible progress for menu screenshots. None of
+        // it reaches disk — `DemoProgress` turns both stores' `save()` into a
+        // no-op for the life of the process, so playing on from a demo launch
+        // cannot overwrite the real save.
         if args.contains("-unlockall") {
             for course in CourseType.allCases {
                 var record = CourseRecord()
@@ -407,6 +409,10 @@ final class GameController {
         strokes += 1
         runPenalties += 1
         stats.penalties += 1
+        // Written out now rather than left to the end of the hole: a hole that is
+        // quit halfway — or restarted from the pause menu — never reaches
+        // `recordHoleStats`, and the penalties taken on it would go with it.
+        stats.save()
         switch kind {
         case .water:
             showToast(String(localized: "Splash! +1 stroke"), symbol: "drop.fill")

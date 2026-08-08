@@ -183,8 +183,8 @@ enum Spectators {
     /// looking at, and about a millisecond of entity building per hole once the
     /// meshes and materials are warm.
     @discardableResult
-    static func build(level: LevelDefinition, theme: CourseTheme, into root: Entity,
-                      spectators: inout [Spectator]) -> [SIMD2<Float>] {
+    static func build(level: LevelDefinition, terrain: Scenery.Terrain, theme: CourseTheme,
+                      into root: Entity, spectators: inout [Spectator]) -> [SIMD2<Float>] {
         var rng = SplitMix64(seed: UInt64(level.course.order * 977 + level.number * 43 + 11))
         let kit = kit(for: level.course, theme: theme)
         let bounds = level.bounds
@@ -220,8 +220,9 @@ enum Spectators {
             // be seen from the front.
             taken += party(kind, at: point,
                            facing: facing ?? safeDirection(from: point, to: level.tee),
-                           near: gap(from: point, to: bounds) < detailRange,
-                           kit: kit, rng: &rng, into: root, spectators: &spectators)
+                           near: bounds.distance(to: point) < detailRange,
+                           terrain: terrain, kit: kit, rng: &rng,
+                           into: root, spectators: &spectators)
         }
 
         // The group waiting for the hole to come free belongs at the tee — that
@@ -331,13 +332,6 @@ enum Spectators {
         return nil
     }
 
-    /// How far a point lies outside the course footprint.
-    private static func gap(from point: SIMD2<Float>, to rect: GroundRect) -> Float {
-        let x = max(rect.minX - point.x, 0, point.x - rect.maxX)
-        let z = max(rect.minZ - point.y, 0, point.y - rect.maxZ)
-        return simd_length(SIMD2(x, z))
-    }
-
     // MARK: Groups
 
     private enum Party {
@@ -370,12 +364,13 @@ enum Spectators {
     }
 
     private static func party(_ kind: Party, at point: SIMD2<Float>, facing: SIMD2<Float>,
-                              near: Bool, kit: Kit, rng: inout SplitMix64,
-                              into root: Entity,
+                              near: Bool, terrain: Scenery.Terrain, kit: Kit,
+                              rng: inout SplitMix64, into root: Entity,
                               spectators: inout [Spectator]) -> [SIMD2<Float>] {
+        let base = terrain.height(at: point)
         let group = Entity()
         group.name = "gallery"
-        group.position = SIMD3(point.x, Scenery.groundY, point.y)
+        group.position = SIMD3(point.x, base, point.y)
         group.orientation = simd_quatf(angle: atan2(facing.x, facing.y) + rng.float(in: -0.2...0.2),
                                        axis: SIMD3(0, 1, 0))
 
@@ -383,10 +378,25 @@ enum Spectators {
         let sideways = SIMD2(facing.y, -facing.x)
         var spots = [point]
 
-        func stand(_ role: Role, x: Float, z: Float = 0) {
+        /// Where in the group somebody's feet go, sunk a whisker so the sole
+        /// never shows daylight under it.
+        ///
+        /// Everyone is put on the ground under their own feet rather than on
+        /// the group's: the swells are kept well clear of the course, but a
+        /// group standing across the skirt of one is a metre wide on ground
+        /// that is not level, and a single height for all of it is somebody
+        /// buried to the knee at one end of the row and hovering at the other.
+        func ground(x: Float, z: Float) -> SIMD3<Float> {
+            SIMD3(x, terrain.height(at: point + sideways * x + facing * z) - base - 0.006, z)
+        }
+
+        /// `on` overrides the ground for somebody whose feet are not on it: a
+        /// figure sitting on a bench takes its height from the bench rather
+        /// than from the earth under that end of it.
+        func stand(_ role: Role, x: Float, z: Float = 0, on seat: Float? = nil) {
             let figure = figure(role: role, kit: kit, detailed: near,
                                 outward: x < 0 ? -1 : 1, rng: &rng)
-            figure.root.position = SIMD3(x, 0, z)
+            figure.root.position = SIMD3(x, seat ?? ground(x: x, z: z).y, z)
             figure.root.orientation = simd_quatf(angle: rng.float(in: -0.28...0.28),
                                                  axis: SIMD3(0, 1, 0))
             group.addChild(figure.root)
@@ -414,17 +424,23 @@ enum Spectators {
             stand(.player, x: -0.22, z: rng.float(in: -0.05...0.05))
             stand(.player, x: 0.18, z: rng.float(in: -0.05...0.05))
             if rng.chance(0.5) { stand(.adult, x: 0.54, z: -0.06) }
-            group.addChild(golfBag(at: SIMD3(rng.chance(0.5) ? -0.52 : 0.72, 0, -0.10), kit: kit))
+            group.addChild(golfBag(at: ground(x: rng.chance(0.5) ? -0.52 : 0.72, z: -0.10),
+                                   kit: kit))
 
         case .bench:
-            group.addChild(bench(kit: kit))
-            stand(.seated, x: -0.17, z: -0.02)
-            stand(.seated, x: 0.17, z: -0.02)
+            // The bench stands as one piece, and the pair on it sit at the
+            // height of the seat: two people each taking their own patch of
+            // ground would be two people sitting through it.
+            let seat = bench(kit: kit)
+            seat.position = ground(x: 0, z: -0.02)
+            group.addChild(seat)
+            stand(.seated, x: -0.17, z: -0.02, on: seat.position.y)
+            stand(.seated, x: 0.17, z: -0.02, on: seat.position.y)
 
         case .walker:
             stand(.adult, x: -0.12)
             let dog = dog(kit: kit, detailed: near, rng: &rng)
-            dog.root.position = SIMD3(0.26, 0, 0.10)
+            dog.root.position = ground(x: 0.26, z: 0.10)
             dog.root.orientation = simd_quatf(angle: rng.float(in: -0.5...(-0.1)),
                                               axis: SIMD3(0, 1, 0))
             group.addChild(dog.root)

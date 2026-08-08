@@ -80,8 +80,98 @@ enum Scenery {
 
     // MARK: - Terrain
 
+    /// Where a mound is sunk to: its equator, so only the cap of it shows.
+    private static let moundBase: Float = groundY - 0.02
+
+    /// Ground the swells keep off: the boards, the paving, and the strip
+    /// outside it where the gallery stands and the near decorations are
+    /// planted.
+    ///
+    /// A dome is up to seven metres across and used to be placed by its middle,
+    /// so its skirt lapped in over the fringe and — at the wide end of the
+    /// range — over the boards themselves. What that looks like is a hill
+    /// growing through the felt with the people beside it buried to the knee.
+    /// Everything nearer the hole than this now stands on level ground.
+    private static let moundClearance: Float = 2.4
+
+    /// The shape of the ground the hole sits in.
+    ///
+    /// The slab is flat; the swells laid over it are not, and anything put down
+    /// out there has to stand on the surface rather than on the slab that
+    /// surface was measured from. So the mounds are kept as the maths they are
+    /// drawn from and not only as the models they become: the domes on screen
+    /// and the answers `height(at:)` gives come off the same list, so the
+    /// ground can never say one thing and draw another.
+    struct Terrain {
+
+        /// One swell: a squashed sphere sunk to its equator in the slab.
+        fileprivate struct Mound {
+            var center: SIMD2<Float>
+            var radius: Float
+            var scale: SIMD3<Float>
+            /// Which of the three shared tones it is painted in.
+            var tone: Int
+
+            /// The footprint, as its two horizontal semi-axes.
+            var radii: SIMD2<Float> { SIMD2(radius * scale.x, radius * scale.z) }
+            /// How far the crown stands proud of the slab.
+            var rise: Float { radius * scale.y }
+        }
+
+        fileprivate let mounds: [Mound]
+
+        init(level: LevelDefinition) {
+            var rng = SplitMix64(seed: UInt64(level.course.order * 613 + level.number * 17 + 3))
+            let bounds = level.bounds
+            let slice = 2 * Float.pi / Float(mountCount)
+            mounds = (0..<mountCount).map { i in
+                let angle = (Float(i) + rng.float(in: 0.1...0.9)) * slice
+                let distance = rng.float(in: 0...5.0)
+                let radius = rng.float(in: 1.0...2.8)
+                let tone = Int(rng.next() % 3)
+                let scale = SIMD3(rng.float(in: 0.8...1.3), rng.float(in: 0.10...0.22),
+                                  rng.float(in: 0.8...1.3))
+                // Placed by its skirt rather than by its middle: out along its
+                // own bearing to where a dome this wide stops reaching in over
+                // the fringe, then a stretch further, and never so far that its
+                // far side hangs off the end of the slab.
+                let reach = radius * max(scale.x, scale.z)
+                let near = Terrain.exit(bounds.expanded(by: moundClearance + reach), along: angle)
+                let far = Terrain.exit(bounds.expanded(by: terrainMargin / 2 - reach - 0.5),
+                                       along: angle)
+                return Mound(center: bounds.center + SIMD2(cos(angle), sin(angle))
+                                                   * min(near + distance, far),
+                             radius: radius, scale: scale, tone: tone)
+            }
+        }
+
+        /// How far a bearing out of the middle of the course runs before it
+        /// leaves a rectangle. The slab test — exactly where the ray crosses,
+        /// which is what lets a dome be placed by its edge in one go rather
+        /// than nudged clear of the course a step at a time.
+        private static func exit(_ rect: GroundRect, along angle: Float) -> Float {
+            let half = rect.size / 2
+            let direction = abs(SIMD2(cos(angle), sin(angle)))
+            return min(direction.x > 0.001 ? half.x / direction.x : .infinity,
+                       direction.y > 0.001 ? half.y / direction.y : .infinity)
+        }
+
+        /// The height of the ground at a point: the slab, or whichever swell
+        /// happens to stand highest over it.
+        func height(at point: SIMD2<Float>) -> Float {
+            var y = groundY
+            for mound in mounds {
+                let offset = (point - mound.center) / mound.radii
+                let inside = 1 - simd_length_squared(offset)
+                guard inside > 0 else { continue }
+                y = max(y, moundBase + mound.rise * sqrt(inside))
+            }
+            return y
+        }
+    }
+
     static func buildTerrain(level: LevelDefinition, theme: CourseTheme,
-                             materials: ThemeMaterials, into root: Entity) {
+                             materials: ThemeMaterials, into root: Entity) -> Terrain {
         let bounds = level.bounds
         let size = bounds.size + SIMD2(repeating: terrainMargin)
         // Speckle stays the same size on screen whatever the hole measures: the
@@ -98,7 +188,9 @@ enum Scenery {
         SceneBuilder.castsNoShadow(slab)
         root.addChild(slab)
 
-        buildMounds(level: level, theme: theme, into: root)
+        let terrain = Terrain(level: level)
+        buildMounds(terrain, theme: theme, into: root)
+        return terrain
     }
 
     /// Low swells in the ground around the course.
@@ -107,11 +199,7 @@ enum Scenery {
     /// is — the giveaway is that the silhouette against the sky is perfectly
     /// straight. A dozen wide, shallow domes break that line without adding
     /// anything the ball can ever reach.
-    private static func buildMounds(level: LevelDefinition, theme: CourseTheme, into root: Entity) {
-        var rng = SplitMix64(seed: UInt64(level.course.order * 613 + level.number * 17 + 3))
-        let bounds = level.bounds
-        let half = bounds.size / 2
-
+    private static func buildMounds(_ terrain: Terrain, theme: CourseTheme, into root: Entity) {
         // Three shared tones rather than one per mound: same variation on
         // screen, a third of the materials for the renderer to sort.
         let tones = [
@@ -122,21 +210,12 @@ enum Scenery {
                                                                   amount: 0.18), roughness: 1.0),
         ]
 
-        for i in 0..<mountCount {
-            let slice = 2 * Float.pi / Float(mountCount)
-            let angle = (Float(i) + rng.float(in: 0.1...0.9)) * slice
-            let distance = rng.float(in: 3.0...9.0)
-            let radius = rng.float(in: 1.0...2.8)
-            let dome = Prim.sphere(radius: radius, material: tones[Int(rng.next() % 3)])
-            dome.scale *= SIMD3(rng.float(in: 0.8...1.3),
-                                rng.float(in: 0.10...0.22),
-                                rng.float(in: 0.8...1.3))
-            // Sunk to its waist, so only the swell shows above the slab.
-            dome.position = SIMD3(bounds.center.x + cos(angle) * (half.x + distance),
-                                  groundY - 0.02,
-                                  bounds.center.y + sin(angle) * (half.y + distance))
-            // Sunk to the waist in the slab and never closer than three metres
-            // out: what little shadow a swell this shallow throws falls on
+        for mound in terrain.mounds {
+            let dome = Prim.sphere(radius: mound.radius, material: tones[mound.tone])
+            dome.scale *= mound.scale
+            dome.position = SIMD3(mound.center.x, moundBase, mound.center.y)
+            // Sunk to the waist in the slab and standing well clear of the
+            // course: what little shadow a swell this shallow throws falls on
             // terrain the player is not looking at.
             SceneBuilder.castsNoShadow(dome)
             root.addChild(dome)

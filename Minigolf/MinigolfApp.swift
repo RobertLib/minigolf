@@ -9,6 +9,11 @@ import SwiftUI
 
 @main
 struct MinigolfApp: App {
+
+    init() {
+        AssetCaches.startWatchingMemory()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

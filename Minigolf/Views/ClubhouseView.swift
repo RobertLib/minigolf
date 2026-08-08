@@ -25,11 +25,12 @@ struct ClubhouseView: View {
                         controller.goToMenu()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
+                            .scaledFont(18, weight: .bold, relativeTo: .headline)
                             .foregroundStyle(.white)
                             .padding(12)
                             .background(Circle().fill(.white.opacity(0.15)))
                     }
+                    .accessibilityLabel(Text("Back to menu"))
                     Spacer()
                     HUDChip(text: String(localized: "\(Achievements.earnedCount(stats: controller.stats, progress: controller.progress))/\(Achievements.all.count) trophies"),
                             systemImage: "trophy.fill")
@@ -40,6 +41,7 @@ struct ClubhouseView: View {
                     .font(.system(.largeTitle, design: .rounded, weight: .heavy))
                     .foregroundStyle(.white)
                     .padding(.top, 2)
+                    .accessibilityAddTraits(.isHeader)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 22) {
@@ -118,7 +120,7 @@ private struct BallSwatch: View {
                             .fill(.black.opacity(0.62))
                             .frame(width: 52, height: 52)
                         Image(systemName: "lock.fill")
-                            .font(.system(size: 18, weight: .bold))
+                            .scaledFont(18, weight: .bold, relativeTo: .headline)
                             .foregroundStyle(.white.opacity(0.85))
                     }
                 }
@@ -130,16 +132,22 @@ private struct BallSwatch: View {
                 )
 
                 Text(unlocked ? skin.displayName : skin.requirement)
-                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .scaledFont(10, weight: .semibold, design: .rounded, relativeTo: .caption2)
                     .foregroundStyle(.white.opacity(unlocked ? 0.9 : 0.55))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
-                    .frame(height: 26, alignment: .top)
+                    .frame(minHeight: 26, alignment: .top)
             }
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
         .disabled(!unlocked)
+        // A locked swatch shows the requirement where the name would be, so the
+        // name itself has to come back in here or the ball has no identity.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(skin.displayName))
+        .accessibilityValue(unlocked ? Text("Unlocked") : Text("Locked. \(skin.requirement)"))
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
     }
 }
 
@@ -183,14 +191,14 @@ private struct StatTile: View {
     var body: some View {
         VStack(spacing: 3) {
             Image(systemName: symbol)
-                .font(.system(size: 13, weight: .bold))
+                .scaledFont(13, weight: .bold, relativeTo: .footnote)
                 .foregroundStyle(.yellow.opacity(0.9))
             Text(value)
-                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .scaledFont(20, weight: .heavy, design: .rounded, relativeTo: .title3)
                 .monospacedDigit()
                 .foregroundStyle(.white)
             Text(label)
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .scaledFont(10, weight: .semibold, design: .rounded, relativeTo: .caption2)
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
         }
@@ -198,6 +206,11 @@ private struct StatTile: View {
         .padding(.vertical, 10)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
             .fill(.white.opacity(0.1)))
+        // Number first, caption second is right on screen and backwards out
+        // loud — a listener wants to know what is being counted.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(label))
+        .accessibilityValue(Text(value))
     }
 }
 
@@ -240,7 +253,7 @@ private struct TrophyRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: achievement.symbol)
-                .font(.system(size: 17, weight: .bold))
+                .scaledFont(17, weight: .bold, relativeTo: .headline)
                 .foregroundStyle(earned ? .black.opacity(0.75) : .white.opacity(0.8))
                 .frame(width: 40, height: 40)
                 .background(Circle().fill(earned
@@ -252,7 +265,7 @@ private struct TrophyRow: View {
                     .font(.system(.subheadline, design: .rounded, weight: .bold))
                     .foregroundStyle(.white)
                 Text(achievement.detail)
-                    .font(.system(size: 11, design: .rounded))
+                    .scaledFont(11, design: .rounded, relativeTo: .caption2)
                     .foregroundStyle(.white.opacity(0.68))
                     .fixedSize(horizontal: false, vertical: true)
 
@@ -274,13 +287,20 @@ private struct TrophyRow: View {
             Spacer(minLength: 0)
 
             Text(earned ? "✓" : "\(current)/\(achievement.goal)")
-                .font(.system(size: 12, weight: .heavy, design: .rounded))
+                .scaledFont(12, weight: .heavy, design: .rounded, relativeTo: .caption)
                 .monospacedDigit()
                 .foregroundStyle(earned ? .yellow : .white.opacity(0.6))
         }
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 14, style: .continuous)
             .fill(.white.opacity(earned ? 0.12 : 0.06)))
+        // The tick, the gold disc and the progress bar all say the same thing
+        // three ways, and none of the three survives being read aloud.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("\(achievement.title). \(achievement.detail)"))
+        .accessibilityValue(earned
+                            ? Text("Earned")
+                            : Text("\(current) of \(achievement.goal)"))
     }
 }
 

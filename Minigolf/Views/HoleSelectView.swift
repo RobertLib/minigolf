@@ -84,11 +84,12 @@ struct HoleSelectView: View {
                     controller.goToCourseSelect()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 18, weight: .bold))
+                        .scaledFont(18, weight: .bold, relativeTo: .headline)
                         .foregroundStyle(.white)
                         .padding(12)
                         .background(Circle().fill(.white.opacity(0.15)))
                 }
+                .accessibilityLabel(Text("Back to course select"))
                 Spacer()
             }
             .padding(.horizontal)
@@ -96,12 +97,15 @@ struct HoleSelectView: View {
             Label(course.displayName, systemImage: course.symbolName)
                 .font(.system(.title, design: .rounded, weight: .heavy))
                 .foregroundStyle(.white)
+                .accessibilityAddTraits(.isHeader)
 
             HStack(spacing: 8) {
                 HUDChip(text: "\(starsEarned)/\(levels.count * HoleStars.max)",
-                        systemImage: "star.fill")
+                        systemImage: "star.fill",
+                        voiceOverLabel: Text("\(starsEarned) of \(levels.count * HoleStars.max) stars"))
                 HUDChip(text: "\(record.bonusStars.count)/\(LevelLibrary.bonusStarCount(course))",
-                        systemImage: "sparkles")
+                        systemImage: "sparkles",
+                        voiceOverLabel: Text("\(record.bonusStars.count) of \(LevelLibrary.bonusStarCount(course)) bonus stars"))
                 HUDChip(text: String(localized: "Par \(LevelLibrary.coursePar(course))"),
                         systemImage: "flag.fill")
             }
@@ -124,42 +128,42 @@ private struct HoleTile: View {
             VStack(spacing: 4) {
                 HStack(spacing: 4) {
                     Text("\(level.number)")
-                        .font(.system(size: 22, weight: .heavy, design: .rounded))
+                        .scaledFont(22, weight: .heavy, design: .rounded, relativeTo: .title2)
                         .foregroundStyle(.white)
                     Spacer(minLength: 0)
                     if hasBonusStar {
                         Image(systemName: bonusCollected ? "sparkles" : "sparkle")
-                            .font(.system(size: 12, weight: .bold))
+                            .scaledFont(12, weight: .bold, relativeTo: .caption)
                             .foregroundStyle(bonusCollected ? .yellow : .white.opacity(0.35))
                     }
                 }
 
                 Text(level.name)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .scaledFont(11, weight: .semibold, design: .rounded, relativeTo: .caption2)
                     .foregroundStyle(.white.opacity(0.85))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 28, alignment: .top)
+                    .frame(minHeight: 28, alignment: .top)
 
                 HStack(spacing: 2) {
                     ForEach(0..<HoleStars.max, id: \.self) { i in
                         Image(systemName: i < stars ? "star.fill" : "star")
-                            .font(.system(size: 10))
+                            .scaledFont(10, relativeTo: .caption2)
                             .foregroundStyle(i < stars ? .yellow : .white.opacity(0.3))
                     }
                     Spacer(minLength: 0)
                     Text(best.map { "\($0)" } ?? "–")
-                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .scaledFont(12, weight: .heavy, design: .rounded, relativeTo: .caption)
                         .monospacedDigit()
                         .foregroundStyle(.white.opacity(0.9))
                     Text("/\(level.par)")
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .scaledFont(10, weight: .semibold, design: .rounded, relativeTo: .caption2)
                         .foregroundStyle(.white.opacity(0.55))
                 }
             }
             .padding(10)
-            .frame(height: 96)
+            .frame(minHeight: 96)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.white.opacity(stars > 0 ? 0.22 : 0.13))
@@ -174,7 +178,7 @@ private struct HoleTile: View {
                         .fill(.black.opacity(0.55))
                         .overlay(
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 20, weight: .bold))
+                                .scaledFont(20, weight: .bold, relativeTo: .title3)
                                 .foregroundStyle(.white.opacity(0.85))
                         )
                 }
@@ -182,5 +186,26 @@ private struct HoleTile: View {
         }
         .buttonStyle(.plain)
         .disabled(!unlocked)
+        // Read as one tile. Swiped through piece by piece it is a number, a
+        // name, three anonymous stars and two more numbers, none of which say
+        // what they are.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Hole \(level.number), \(level.name)"))
+        .accessibilityValue(Text(spokenValue))
+    }
+
+    private var spokenValue: String {
+        guard unlocked else { return String(localized: "Locked") }
+        var parts = [
+            best.map { String(localized: "best \($0), par \(level.par)") }
+                ?? String(localized: "not played yet, par \(level.par)"),
+            String(localized: "\(stars) out of \(HoleStars.max) stars"),
+        ]
+        if hasBonusStar {
+            parts.append(bonusCollected
+                         ? String(localized: "bonus star collected")
+                         : String(localized: "bonus star still hidden"))
+        }
+        return parts.joined(separator: ", ")
     }
 }

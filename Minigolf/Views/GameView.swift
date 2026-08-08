@@ -24,6 +24,7 @@ struct GameContainerView: View {
             if controller.introRunning {
                 IntroBanner(level: controller.currentLevel)
                     .transition(.opacity)
+                    .accessibilityAddTraits(.isHeader)
             }
 
             overlayContent
@@ -32,19 +33,30 @@ struct GameContainerView: View {
             // would otherwise be hidden behind it.
             if let toast = controller.toast {
                 ToastView(toast: toast)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .motionTransition(.move(edge: .top).combined(with: .opacity))
                     .id(toast.id)
             }
 
             if let achievement = controller.achievementBanner {
                 AchievementBanner(achievement: achievement)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .motionTransition(.move(edge: .bottom).combined(with: .opacity))
                     .id(achievement.id)
             }
         }
-        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: controller.toast)
-        .animation(.spring(response: 0.45, dampingFraction: 0.75),
-                   value: controller.achievementBanner?.id)
+        // Penalties, unlocks and trophies show themselves for a couple of
+        // seconds and then leave, which is well inside the time it takes to
+        // swipe over and find them. They are spoken as they appear instead.
+        .onChange(of: controller.toast?.id) { _, _ in
+            announce(controller.toast?.text)
+        }
+        .onChange(of: controller.achievementBanner?.id) { _, _ in
+            announce(controller.achievementBanner.map {
+                String(localized: "Trophy unlocked: \($0.title)")
+            })
+        }
+        .motionAnimation(.spring(response: 0.4, dampingFraction: 0.8), value: controller.toast)
+        .motionAnimation(.spring(response: 0.45, dampingFraction: 0.75),
+                         value: controller.achievementBanner?.id)
         .animation(.easeInOut(duration: 0.3), value: controller.introRunning)
     }
 
@@ -124,6 +136,7 @@ private struct GameSceneView: View {
 
 struct HUDView: View {
     let controller: GameController
+    @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
         VStack {
@@ -133,13 +146,23 @@ struct HUDView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 8)
+        // The HUD sits on top of the hole rather than beside it, so it is the
+        // one surface where the largest accessibility sizes would cover the
+        // thing being played. It grows with the reader up to a point and stops.
+        .dynamicTypeSize(...DynamicTypeSize.accessibility1)
     }
 
     private var topBar: some View {
         VStack(spacing: 6) {
             HStack(spacing: 8) {
-                HUDChip(text: "\(controller.holeNumber)/\(controller.holeCount)",
-                        systemImage: controller.course.symbolName)
+                // At the accessibility sizes the top row runs out of width, and
+                // the hole total is the one number on it that never changes —
+                // dropping it beats letting the counter truncate to "6/…".
+                HUDChip(text: typeSize.isAccessibilitySize
+                              ? "\(controller.holeNumber)"
+                              : "\(controller.holeNumber)/\(controller.holeCount)",
+                        systemImage: controller.course.symbolName,
+                        voiceOverLabel: Text("\(controller.course.displayName), hole \(controller.holeNumber) of \(controller.holeCount)"))
                 HUDChip(text: String(localized: "Par \(controller.currentLevel.par)"),
                         systemImage: "flag.fill")
                 Spacer()
@@ -157,11 +180,12 @@ struct HUDView: View {
                     controller.pause()
                 } label: {
                     Image(systemName: "pause.fill")
-                        .font(.system(size: 15, weight: .bold))
+                        .scaledFont(15, weight: .bold, relativeTo: .subheadline)
                         .foregroundStyle(.white)
                         .padding(10)
                         .background(Circle().fill(.black.opacity(0.35)))
                 }
+                .accessibilityLabel(Text("Pause"))
             }
             HStack(spacing: 8) {
                 HUDChip(
@@ -169,14 +193,18 @@ struct HUDView: View {
                     systemImage: "figure.golf")
                 if !controller.isSingleHole {
                     HUDChip(text: String(localized: "Total \(formattedDiff(controller.runningDiff))"),
-                            systemImage: "sum")
+                            systemImage: "sum",
+                            voiceOverLabel: Text("Total \(controller.runningDiff) against par"))
                 }
                 if controller.currentLevel.bonusStar != nil {
                     Image(systemName: controller.bonusStarInHand ? "sparkles" : "sparkle")
-                        .font(.system(size: 13, weight: .bold))
+                        .scaledFont(13, weight: .bold, relativeTo: .caption)
                         .foregroundStyle(controller.bonusStarInHand ? .yellow : .white.opacity(0.55))
                         .padding(7)
                         .background(Circle().fill(.black.opacity(0.35)))
+                        .accessibilityLabel(controller.bonusStarInHand
+                                            ? Text("Bonus star collected")
+                                            : Text("Bonus star not collected yet"))
                 }
                 Spacer()
             }
@@ -215,7 +243,7 @@ private struct PowerBar: View {
     var body: some View {
         VStack(spacing: 5) {
             Text("\(Int((controller.aimPower * 100).rounded()))%")
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .scaledFont(13, weight: .heavy, design: .rounded, relativeTo: .caption)
                 .monospacedDigit()
                 .foregroundStyle(.white)
                 .shadow(color: .black.opacity(0.6), radius: 2)
@@ -243,6 +271,9 @@ private struct PowerBar: View {
             .frame(width: 230, height: 14)
             .overlay(Capsule().strokeBorder(.white.opacity(0.5), lineWidth: 1))
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Shot power"))
+        .accessibilityValue(Text("\(Int((controller.aimPower * 100).rounded())) percent"))
     }
 }
 
@@ -256,14 +287,15 @@ private struct AchievementBanner: View {
             Spacer()
             HStack(spacing: 12) {
                 Image(systemName: achievement.symbol)
-                    .font(.system(size: 20, weight: .bold))
+                    .scaledFont(20, weight: .bold, relativeTo: .title3)
                     .foregroundStyle(.black.opacity(0.75))
                     .frame(width: 44, height: 44)
                     .background(Circle().fill(.yellow.gradient))
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Trophy unlocked")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .scaledFont(11, weight: .bold, design: .rounded, relativeTo: .caption2)
                         .foregroundStyle(.yellow)
                     Text(achievement.title)
                         .font(.system(.headline, design: .rounded, weight: .heavy))
@@ -300,7 +332,7 @@ private struct IntroBanner: View {
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.8))
                 Text("Hole \(level.number)")
-                    .font(.system(size: 34, weight: .heavy, design: .rounded))
+                    .scaledFont(34, weight: .heavy, design: .rounded, relativeTo: .largeTitle)
                     .foregroundStyle(.white)
                 Text(level.name)
                     .font(.system(.title3, design: .rounded, weight: .heavy))
@@ -353,8 +385,9 @@ private struct TutorialOverlay: View {
                 Spacer()
                 VStack(spacing: 14) {
                     Image(systemName: "hand.draw.fill")
-                        .font(.system(size: 44))
+                        .scaledFont(44, relativeTo: .largeTitle)
                         .foregroundStyle(.white)
+                        .accessibilityHidden(true)
                     Text("How to Play")
                         .font(.system(.title2, design: .rounded, weight: .heavy))
                         .foregroundStyle(.white)

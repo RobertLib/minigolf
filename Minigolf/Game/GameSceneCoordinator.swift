@@ -59,6 +59,9 @@ final class GameSceneCoordinator {
     private let skin: BallSkin
     private let aimGuideLevel = GameSettings.shared.aimGuide
     private let trailEnabled = GameSettings.shared.ballTrail
+    /// Read once per hole: the switch cannot be thrown from inside a hole
+    /// without passing through a menu, which rebuilds the scene anyway.
+    private let reduceMotion = Motion.reduced
     /// True while the current aim would drop the ball, so the "in the cup"
     /// tick only fires once per line.
     private var guideOnTarget = false
@@ -483,6 +486,14 @@ final class GameSceneCoordinator {
 
     private func introStartPose() -> (SIMD3<Float>, SIMD3<Float>) {
         guard let built else { return (SIMD3(0, 1.4, 1.4), .zero) }
+        // Reduce Motion: the hole still gets its opening — the banner naming it
+        // is worth reading, and the pause before the first putt is part of how
+        // the game is paced — but the camera spends it parked where the shot
+        // will be played from instead of sweeping in from behind the cup.
+        // Answering here rather than at the flyover means both ends of the
+        // travel come out the same point, so the interpolation still runs and
+        // simply moves nothing; there is no second path to keep in step.
+        guard !reduceMotion else { return followPose(ballPosition: lastRestPosition) }
         return (built.holePosition + SIMD3(0, 0.85, 1.25), built.holePosition)
     }
 
@@ -788,7 +799,10 @@ final class GameSceneCoordinator {
 
     /// Physical confetti: tiny colorful boxes popping out of the hole.
     private func spawnConfetti(at position: SIMD3<Float>) {
-        guard let built else { return }
+        // Two dozen pieces thrown into the air over the one thing the player is
+        // watching is the busiest moment in the game, and it carries nothing the
+        // sound, the haptic and the result card do not already say.
+        guard !reduceMotion, let built else { return }
         let theme = level.course.theme
         let colors: [UIColor] = [
             .systemYellow, .systemPink, .systemTeal, .white, theme.accent,
@@ -1627,6 +1641,9 @@ final class GameSceneCoordinator {
     }
 
     private func flash(_ entity: Entity) {
+        // The bumper says it was hit with a sound and a tap as well; the pulse
+        // is the decoration on top of those, so it is what goes.
+        guard !reduceMotion else { return }
         let basePosition = entity.position
         let baseScale = entity.scale
         entity.move(

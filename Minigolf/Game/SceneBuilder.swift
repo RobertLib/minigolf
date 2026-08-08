@@ -312,7 +312,8 @@ enum SceneBuilder {
         let materials = ThemeMaterials.shared(for: level.course)
 
         Scenery.buildSky(theme: theme, course: level.course, into: root)
-        Scenery.buildTerrain(level: level, theme: theme, materials: materials, into: root)
+        let terrain = Scenery.buildTerrain(level: level, theme: theme, materials: materials,
+                                           into: root)
         Scenery.buildApron(level: level, theme: theme, into: root)
         Scenery.buildHorizon(level: level, theme: theme, into: root)
         buildLights(theme: theme, level: level, into: root)
@@ -380,9 +381,10 @@ enum SceneBuilder {
         // best, and the decorations are then planted around wherever it ended
         // up rather than through it.
         var spectators: [Spectator] = []
-        let gallery = Spectators.build(level: level, theme: theme, into: root,
+        let gallery = Spectators.build(level: level, terrain: terrain, theme: theme, into: root,
                                        spectators: &spectators)
-        buildDecorations(level: level, theme: theme, into: root, occupied: gallery)
+        buildDecorations(level: level, terrain: terrain, theme: theme, into: root,
+                         occupied: gallery)
         Scenery.buildWeather(level: level, theme: theme, into: root,
                              animated: &outputs.animated)
 
@@ -816,8 +818,9 @@ enum SceneBuilder {
 
     /// `occupied` is where the gallery is already standing: a prop keeps the
     /// same distance from a person as it does from another prop.
-    private static func buildDecorations(level: LevelDefinition, theme: CourseTheme,
-                                         into root: Entity, occupied: [SIMD2<Float>] = []) {
+    private static func buildDecorations(level: LevelDefinition, terrain: Scenery.Terrain,
+                                         theme: CourseTheme, into root: Entity,
+                                         occupied: [SIMD2<Float>] = []) {
         var rng = SplitMix64(seed: UInt64(level.course.order * 100 + level.number))
         let bounds = level.bounds
         // Nothing is planted on the paving, so the apron reads as a swept path
@@ -836,7 +839,10 @@ enum SceneBuilder {
             if placed.contains(where: { simd_distance($0, point) < spacing }) { return }
             placed.append(point)
             let decor = makeDecoration(course: level.course, theme: theme, rng: &rng)
-            decor.position = SIMD3(point.x, Scenery.groundY, point.y)
+            // On the ground rather than on the slab it was measured from: the
+            // outer ring reaches into the swells, and a fir tree planted at
+            // slab height inside one is a fir tree buried to its branches.
+            decor.position = SIMD3(point.x, terrain.height(at: point), point.y)
             decor.scale = SIMD3(repeating: scale)
             if !castsShadow { castsNoShadow(decor) }
             root.addChild(decor)
@@ -1346,6 +1352,11 @@ enum SceneBuilder {
 
     private static var materialCache: [MaterialKey: PhysicallyBasedMaterial] = [:]
 
+    /// Drops every cached plain material. See `AssetCaches`.
+    static func purgeMaterials() {
+        materialCache.removeAll()
+    }
+
     /// Takes an entity and everything under it out of the sun's shadow pass.
     ///
     /// Every model in a hole is drawn twice: once for the camera, once into the
@@ -1459,6 +1470,12 @@ struct ThemeMaterials {
     }
 
     private static var cache: [CourseType: ThemeMaterials] = [:]
+
+    /// Drops every world's set, and with it the last reference to the textures
+    /// inside them. See `AssetCaches`.
+    static func purge() {
+        cache.removeAll()
+    }
 
     private var hasEveryTexture: Bool {
         feltTexture != nil && sandTexture != nil && mudTexture != nil
