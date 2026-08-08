@@ -379,6 +379,49 @@ CS = {
     "Keep a 7-day daily streak.": "Udrž denní sérii 7 dní.",
     "Month of Golf": "Měsíc golfu",
     "Keep a 30-day daily streak.": "Udrž denní sérii 30 dní.",
+    # VoiceOver. Never shown on screen — these are what the icon-only buttons,
+    # the star rows and the number chips say out loud, since read aloud a row
+    # of stars is silence and "252/324" is a pair of numbers.
+    "Pause": "Pauza",
+    "Back to menu": "Zpět do menu",
+    "Back to course select": "Zpět na výběr kurzu",
+    "Shot power": "Síla úderu",
+    "%lld percent": "%lld procent",
+    "%@, hole %lld of %lld": "%@, jamka %lld z %lld",
+    "Total %lld against par": "Celkem %lld proti paru",
+    "Bonus star collected": "Bonusová hvězda sebrána",
+    "Bonus star not collected yet": "Bonusová hvězda zatím nesebrána",
+    # One music credit read as one row: title, author, licence. The author is
+    # only written in the section header, which nobody swiping row by row ever
+    # hears, so the row says it — an attribution without the name is not one.
+    "%@ by %@, %@": "%@ od %@, %@",
+    "Opens the track's page": "Otevře stránku skladby",
+    "%lld of %lld lives left": "Zbývají životy: %lld ze %lld",
+    "%lld out of %lld stars": "%lld z %lld hvězd",
+    "%lld out of 3 stars": "%lld ze 3 hvězd",
+    "%lld of %lld stars": "%lld z %lld hvězd",
+    "%lld of %lld bonus stars": "%lld z %lld bonusových hvězd",
+    "%lld of %lld": "%lld z %lld",
+    "%lld strokes": "Úderů: %lld",
+    "Hole %lld, par %lld": "Jamka %lld, par %lld",
+    "Hole %lld, %@": "Jamka %lld, %@",
+    "best %lld, par %lld": "rekord %lld, par %lld",
+    "not played yet, par %lld": "zatím nehráno, par %lld",
+    "bonus star collected": "bonusová hvězda sebrána",
+    "bonus star still hidden": "bonusová hvězda je stále schovaná",
+    "Locked": "Zamčeno",
+    "Locked. %@": "Zamčeno. %@",
+    "Unlocked": "Odemčeno",
+    "Earned": "Získáno",
+    "%@. %@": "%@. %@",
+    "Clubhouse, %lld new balls": "Klubovna, nové míčky: %lld",
+    "Play %@": "Hrát %@",
+    "Holes in %@": "Jamky – %@",
+    "Restart hole": "Restartovat jamku",
+    "Restart hole, costs one life": "Restartovat jamku, stojí jeden život",
+    "%lld day streak": "Denní série %lld",
+    "Today's score %lld, %@": "Dnešní skóre %lld, %@",
+    "Trophy unlocked: %@": "Odemčena trofej: %@",
 }
 
 # Keys that are pure symbols/format and carry no translatable text.
@@ -411,23 +454,28 @@ def main():
         catalog = json.load(handle)
     strings = catalog["strings"]
 
-    added, dropped, untranslated = [], [], []
+    added, filled, dropped, untranslated = [], [], [], []
 
     for key in keys:
-        if key in strings:
+        if key not in strings:
+            strings[key] = {}
+            added.append(key)
+
+        # Backfilled on every run rather than only on the run that adds the
+        # key. A key extracted from a build before its translation was written
+        # here lands in the catalog bare, and skipping anything already present
+        # would leave it that way for good — which is exactly how a string ends
+        # up shipping in English inside the Czech build.
+        if "cs" in strings[key].get("localizations", {}):
             continue
         if key in CS:
-            strings[key] = {
-                "localizations": {
-                    "cs": {"stringUnit": {"state": "translated", "value": CS[key]}}
-                }
+            strings[key].setdefault("localizations", {})["cs"] = {
+                "stringUnit": {"state": "translated", "value": CS[key]}
             }
-        elif key in NO_TRANSLATION_NEEDED:
-            strings[key] = {}
-        else:
-            strings[key] = {}
+            if key not in added:
+                filled.append(key)
+        elif key not in NO_TRANSLATION_NEEDED:
             untranslated.append(key)
-        added.append(key)
 
     for key in list(strings):
         if key not in keys:
@@ -439,9 +487,12 @@ def main():
         json.dump(catalog, handle, ensure_ascii=False, indent=2)
         handle.write("\n")
 
-    print("catalog: %d keys (+%d, -%d)" % (len(strings), len(added), len(dropped)))
+    print("catalog: %d keys (+%d, -%d, %d translated)"
+          % (len(strings), len(added), len(dropped), len(filled)))
     for key in sorted(dropped):
         print("  removed  %r" % key)
+    for key in sorted(filled):
+        print("  translated  %r" % key)
     if untranslated:
         print("\nMISSING CZECH (%d):" % len(untranslated))
         for key in sorted(untranslated):

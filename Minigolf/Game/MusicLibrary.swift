@@ -83,7 +83,10 @@ struct MusicWork: Identifiable, Hashable {
     }
 }
 
-extension MusicTrack {
+/// `nonisolated`, like `MusicTrack` itself: `MusicPlayer` reads a playlist from
+/// its own audio queue, and an extension does not inherit the isolation the
+/// enum was declared with.
+nonisolated extension MusicTrack {
     /// The resource names for this world, in manifest order.
     ///
     /// A world is a playlist rather than a single loop: one track of forty

@@ -24,10 +24,16 @@ enum TextureFactory {
     private static var cache: [String: TextureResource] = [:]
 
     /// A texture that has been described but not drawn yet.
-    private nonisolated struct Recipe {
+    ///
+    /// `Sendable`, because that is the whole point of describing a texture
+    /// rather than drawing it: `prewarm` hands the recipe to a detached task and
+    /// gets a bitmap back. The draw closures capture nothing but colours and
+    /// numbers, and each one draws into a context it is handed rather than any
+    /// shared state.
+    private nonisolated struct Recipe: Sendable {
         let key: String
         let size: Int
-        let draw: (CGContext, Int) -> Void
+        let draw: @Sendable (CGContext, Int) -> Void
     }
 
     // MARK: - Drawing and upload

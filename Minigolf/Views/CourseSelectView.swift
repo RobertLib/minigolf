@@ -22,11 +22,12 @@ struct CourseSelectView: View {
                         controller.goToMenu()
                     } label: {
                         Image(systemName: "chevron.left")
-                            .font(.system(size: 18, weight: .bold))
+                            .scaledFont(18, weight: .bold, relativeTo: .headline)
                             .foregroundStyle(.white)
                             .padding(12)
                             .background(Circle().fill(.white.opacity(0.15)))
                     }
+                    .accessibilityLabel(Text("Back to menu"))
                     Spacer()
                     ProgressChips(progress: controller.progress)
                 }
@@ -36,6 +37,7 @@ struct CourseSelectView: View {
                     .font(.system(.largeTitle, design: .rounded, weight: .heavy))
                     .foregroundStyle(.white)
                     .padding(.top, 2)
+                    .accessibilityAddTraits(.isHeader)
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 16) {
@@ -82,9 +84,11 @@ struct ProgressChips: View {
     var body: some View {
         HStack(spacing: 8) {
             HUDChip(text: "\(progress.starsEarned)/\(LevelLibrary.totalHoles * HoleStars.max)",
-                    systemImage: "star.fill")
+                    systemImage: "star.fill",
+                    voiceOverLabel: Text("\(progress.starsEarned) of \(LevelLibrary.totalHoles * HoleStars.max) stars"))
             HUDChip(text: "\(progress.totalBonusStars)/\(LevelLibrary.totalBonusStars)",
-                    systemImage: "sparkles")
+                    systemImage: "sparkles",
+                    voiceOverLabel: Text("\(progress.totalBonusStars) of \(LevelLibrary.totalBonusStars) bonus stars"))
         }
     }
 }
@@ -103,10 +107,11 @@ private struct CourseCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: course.symbolName)
-                    .font(.system(size: 28, weight: .bold))
+                    .scaledFont(28, weight: .bold, relativeTo: .title)
                     .foregroundStyle(.white)
                     .frame(width: 56, height: 56)
                     .background(Circle().fill(.white.opacity(0.2)))
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(course.displayName)
@@ -123,10 +128,12 @@ private struct CourseCard: View {
                     HStack(spacing: 2) {
                         ForEach(0..<3, id: \.self) { i in
                             Image(systemName: i < record.stars ? "star.fill" : "star")
-                                .font(.system(size: 13))
+                                .scaledFont(13, relativeTo: .footnote)
                                 .foregroundStyle(.yellow)
                         }
                     }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text("\(record.stars) out of 3 stars"))
                 }
             }
 
@@ -161,6 +168,10 @@ private struct CourseCard: View {
                         .frame(maxWidth: .infinity)
                         .background(Capsule().fill(.white.opacity(0.28)))
                 }
+                // Which world the button belongs to is carried by the card it
+                // sits on, which a listener stepping straight onto the button
+                // never sees.
+                .accessibilityLabel(Text("Play \(course.displayName)"))
                 Button(action: browse) {
                     Label("Holes", systemImage: "square.grid.3x3.fill")
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
@@ -169,6 +180,7 @@ private struct CourseCard: View {
                         .frame(maxWidth: .infinity)
                         .background(Capsule().fill(.white.opacity(0.16)))
                 }
+                .accessibilityLabel(Text("Holes in \(course.displayName)"))
             }
             .buttonStyle(.plain)
             .disabled(!unlocked)
@@ -192,7 +204,8 @@ private struct CourseCard: View {
                     .overlay(
                         VStack(spacing: 6) {
                             Image(systemName: "lock.fill")
-                                .font(.system(size: 26, weight: .bold))
+                                .scaledFont(26, weight: .bold, relativeTo: .title2)
+                                .accessibilityHidden(true)
                             Text("Finish the previous course to unlock")
                                 .font(.system(.footnote, design: .rounded, weight: .semibold))
                                 .multilineTextAlignment(.center)

@@ -9,7 +9,14 @@
 
 import Foundation
 
-/// Calendar day identity, stable across time zones for streak arithmetic.
+/// Calendar day identity for streak arithmetic.
+///
+/// A day is the player's local one — midnight where they are is when the daily
+/// challenge turns over and when a streak is at risk, which is the only reading
+/// of "today" a player has. Keys are written and parsed through the same
+/// formatter, so the arithmetic stays consistent even if they fly somewhere
+/// else mid-streak; the worst a time zone change can do is make one day count
+/// short or long, never break the chain.
 enum GameDay {
 
     private static let formatter: DateFormatter = {
@@ -99,6 +106,9 @@ struct PlayerStats: Codable {
     }
 
     func save() {
+        #if DEBUG
+        guard !DemoProgress.isActive else { return }
+        #endif
         if let data = try? JSONEncoder().encode(self) {
             UserDefaults.standard.set(data, forKey: Self.storageKey)
         }

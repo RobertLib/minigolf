@@ -32,9 +32,20 @@ struct MusicCreditsView: View {
                                     .foregroundStyle(.secondary)
                             }
                         }
+                        // One row is one credit, and the licence under the title
+                        // is part of it rather than a second thing to swipe to.
+                        // The author is only in the section header, which a
+                        // reader moving row by row never hears, so it is said
+                        // here too — an attribution that leaves the name out is
+                        // not an attribution.
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text("\(work.title) by \(group.author), \(work.licence)"))
+                        .accessibilityHint(Text("Opens the track's page"))
+                        .accessibilityAddTraits(.isLink)
                     }
                 } header: {
                     Text(group.author)
+                        .accessibilityAddTraits(.isHeader)
                 }
             }
 

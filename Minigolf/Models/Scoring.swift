@@ -7,7 +7,7 @@ import Foundation
 import SwiftUI
 
 /// Classic golf naming for a finished hole.
-enum HoleRating {
+enum HoleRating: Equatable {
     case holeInOne
     case eagle
     case birdie

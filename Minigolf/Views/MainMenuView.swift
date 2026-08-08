@@ -20,18 +20,20 @@ struct MainMenuView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     Text("⛳️")
-                        .font(.system(size: 78))
+                        .scaledFont(78, relativeTo: .largeTitle)
                         .rotationEffect(.degrees(swing ? 6 : -6))
                         .animation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true),
                                    value: swing)
                         .onAppear { swing = true }
+                        .accessibilityHidden(true)
 
                     Text("MINIGOLF")
-                        .font(.system(size: 52, weight: .heavy, design: .rounded))
+                        .scaledFont(52, weight: .heavy, design: .rounded, relativeTo: .largeTitle)
                         .foregroundStyle(
                             LinearGradient(colors: [.white, Color(red: 0.85, green: 0.98, blue: 0.8)],
                                            startPoint: .top, endPoint: .bottom))
                         .shadow(color: .black.opacity(0.35), radius: 4, y: 3)
+                        .accessibilityAddTraits(.isHeader)
 
                     Text("\(CourseType.allCases.count) worlds. \(LevelLibrary.totalHoles) holes. One champion.")
                         .font(.system(.subheadline, design: .rounded))
@@ -44,9 +46,11 @@ struct MainMenuView: View {
                             HUDChip(text: String(localized: "\(controller.progress.holesFinished)/\(LevelLibrary.totalHoles) holes"),
                                     systemImage: "flag.fill")
                             HUDChip(text: "\(controller.progress.starsEarned)/\(LevelLibrary.totalHoles * HoleStars.max)",
-                                    systemImage: "star.fill")
+                                    systemImage: "star.fill",
+                                    voiceOverLabel: Text("\(controller.progress.starsEarned) of \(LevelLibrary.totalHoles * HoleStars.max) stars"))
                             HUDChip(text: "\(controller.progress.totalBonusStars)/\(LevelLibrary.totalBonusStars)",
-                                    systemImage: "sparkles")
+                                    systemImage: "sparkles",
+                                    voiceOverLabel: Text("\(controller.progress.totalBonusStars) of \(LevelLibrary.totalBonusStars) bonus stars"))
                         }
                         .padding(.top, 12)
                     }
@@ -78,6 +82,11 @@ struct MainMenuView: View {
                                 }
                         }
                         .buttonStyle(SecondaryButtonStyle())
+                        // The red dot is the only thing saying a ball is
+                        // waiting, and a dot reads as nothing at all.
+                        .accessibilityLabel(controller.unseenSkinCount > 0
+                                            ? Text("Clubhouse, \(controller.unseenSkinCount) new balls")
+                                            : Text("Clubhouse"))
 
                         if controller.progress.allCompleted {
                             Button {
@@ -132,31 +141,35 @@ private struct DailyChallengeCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "calendar.badge.clock")
-                    .font(.system(size: 15, weight: .bold))
+                    .scaledFont(15, weight: .bold, relativeTo: .subheadline)
+                    .accessibilityHidden(true)
                 Text("Daily Challenge")
                     .font(.system(.headline, design: .rounded, weight: .heavy))
+                    .accessibilityAddTraits(.isHeader)
                 Spacer(minLength: 0)
                 if streak > 0 {
                     Label("\(streak)", systemImage: "flame.fill")
                         .font(.system(.subheadline, design: .rounded, weight: .heavy))
                         .foregroundStyle(.orange)
+                        .accessibilityLabel(Text("\(streak) day streak"))
                 }
             }
             .foregroundStyle(.white)
 
             HStack(spacing: 10) {
                 Image(systemName: level.course.symbolName)
-                    .font(.system(size: 20, weight: .bold))
+                    .scaledFont(20, weight: .bold, relativeTo: .title3)
                     .foregroundStyle(.white)
                     .frame(width: 42, height: 42)
                     .background(Circle().fill(.white.opacity(0.18)))
+                    .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(level.name)
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)
                     Text("\(level.course.displayName) · Hole \(level.number) · Par \(level.par)")
-                        .font(.system(size: 11, design: .rounded))
+                        .scaledFont(11, design: .rounded, relativeTo: .caption2)
                         .foregroundStyle(.white.opacity(0.75))
                 }
                 Spacer(minLength: 0)
@@ -165,13 +178,18 @@ private struct DailyChallengeCard: View {
                     let medal = DailyMedal.medal(strokes: score, par: level.par)
                     VStack(spacing: 2) {
                         Image(systemName: medal.symbol)
-                            .font(.system(size: 18, weight: .bold))
+                            .scaledFont(18, weight: .bold, relativeTo: .headline)
                             .foregroundStyle(.yellow)
                         Text("\(score)")
-                            .font(.system(size: 15, weight: .heavy, design: .rounded))
+                            .scaledFont(15, weight: .heavy, design: .rounded,
+                                        relativeTo: .subheadline)
                             .monospacedDigit()
                             .foregroundStyle(.white)
                     }
+                    // The medal is drawn as a symbol and its meaning is
+                    // entirely in which symbol it is.
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text("Today's score \(score), \(medal.label)"))
                 }
             }
 
@@ -191,7 +209,7 @@ private struct DailyChallengeCard: View {
 
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 Text(resetText(now: context.date))
-                    .font(.system(size: 11, design: .rounded))
+                    .scaledFont(11, design: .rounded, relativeTo: .caption2)
                     .foregroundStyle(.white.opacity(0.65))
                     .frame(maxWidth: .infinity)
             }

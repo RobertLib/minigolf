@@ -105,17 +105,31 @@ Minigolf/
     ├── Sounds/*.wav             generované zvuky (viz níže)
     ├── Localizable.xcstrings    en + cs
     └── PrivacyInfo.xcprivacy    privacy manifest (UserDefaults CA92.1)
+
+MinigolfTests/                   jednotkové testy nad čistou logikou (viz níže)
 ```
 
 ## Build & spuštění
 
-Otevři `Minigolf.xcodeproj` v Xcode 26+ a spusť na iPhone/iPad (iOS 26.5+),
+Otevři `Minigolf.xcodeproj` v Xcode 26+ a spusť na iPhone/iPad (iOS 18.0+),
 nebo z terminálu:
 
 ```bash
 xcodebuild -project Minigolf.xcodeproj -scheme Minigolf \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
 ```
+
+Deployment target je 18.0, protože právě tam leží podlaha: `RealityViewCameraContent`,
+`EventSubscription` a `MeshResource.generateCone`/`generateCylinder` jsou iOS 18 API.
+Vyšší číslo by jen ukrojilo zařízení, na kterých hra běží.
+
+Jazykový režim je **Swift 6** s `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`: hra je
+z drtivé většiny main-actor kód a je správně, že to tak kompilátor předpokládá.
+Výjimky jsou tři a všechny jsou zvukové — `SoundManager`, `MusicPlayer` a datové
+enumy, ke kterým sahají. Ty jsou `nonisolated` a `@unchecked Sendable`, protože je
+nechrání aktor, ale sériová fronta: spustit je na main threadu je přesně to, čemu
+se celý ten návrh vyhýbá. V režimu Swift 5 se tenhle rozpor nikde neprojevil,
+Swift 6 ho kontroluje za běhu a `preload()` volaný z fronty na něm padal.
 
 ### Debug argumenty (jen DEBUG buildy)
 
@@ -135,6 +149,23 @@ Pro rychlé testování konkrétních jamek a obrazovek:
   se na screenshot vešlo celé hřiště
 - `-calibrate <0–1>` — každou ránu odpálí danou silou a vypíše skutečný dojezd;
   podle toho je nastavená délka naváděcí čáry v `AimGuideLevel.length(power:)`
+
+### Testy
+
+```bash
+xcodebuild test -project Minigolf.xcodeproj -scheme Minigolf \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+```
+
+`MinigolfTests/` pokrývá to, co se dá tiše rozbít a co si toho nikdo nevšimne:
+golfové prahy (`Scoring`), streaky a denní historii (`PlayerStats`), odemykání
+světů a rekordy jamek (`GameProgress`), determinismus denní výzvy
+(`DailyChallenge`), dosažitelnost trofejí i míčků a **naváděcí čáru**
+(`AimGuide`) — kde se zastaví, jak se odrazí, kdy zezlátne a co všechno
+schválně ignoruje. Jsou to čisté hodnoty — nic nesahá na `UserDefaults` ani na
+RealityKit, takže sada doběhne pod vteřinu. Fyzika samotná testy nemá: běží
+v solveru RealityKitu a mimo něj nedává smysl. Kontroluje ji `validate_levels`
+níže (geometrie) a hraní (chování).
 
 ### Kontrola jamek
 
@@ -173,6 +204,9 @@ Hotové v projektu:
 - [x] Kategorie `public.app-category.sports-games`
 - [x] Lokalizace en + cs, žádná nepoužitá oprávnění (kamera odstraněna)
 - [x] Podpora iPhone i iPad, portrét i landscape
+- [x] Přístupnost — VoiceOver popisky u ikonových tlačítek, hvězdiček, životů
+      a číselných chipů; Dynamic Type přes `scaledFont` (v HUD zastropovaný na
+      `.accessibility1`, aby text nepřekryl hřiště)
 - [x] Texty pro App Store (cs + en) ve složce `AppStore/` — viz [AppStore/README.md](AppStore/README.md)
 
 Zbývá udělat ručně v App Store Connect:
@@ -235,6 +269,11 @@ Zbývá udělat ručně v App Store Connect:
   tvrdila, kde budou za vteřinu, by lhala a načasovací hádanky by ztratily smysl.
 - Denní jamka je odvozená jen z data (FNV-1a hash dne → SplitMix64), takže je stejná
   na každém zařízení bez jakéhokoli serveru, a nikdy se neopakuje dva dny po sobě.
+  To druhé stojí víc práce, než se zdá: srovnávat dnešní los s včerejším *losem*
+  nestačí, protože včerejšek mohl být sám přelosovaný a pak se dnešek vrátí k tomu,
+  co včera opravdu padlo. Rozhoduje se proto proti tomu, co včerejšek skutečně
+  vydal — a to znamená vyřešit i předevčírem. Řetěz se rozplétá čtyři dny zpět;
+  hloub by záleželo jen tehdy, kdyby kolidovaly všechny dny mezi tím.
 - Scéna se staví znovu pro každou jamku (`sceneToken`), takže restart je vždy čistý.
   Aby to nezaseklo obraz, staví se ze sdílených dílů: kulisy (kopce, stromy, komíny,
   kolejnice loopingu) mají jeden mesh na tvar a liší se jen škálou (`Prim`), materiály

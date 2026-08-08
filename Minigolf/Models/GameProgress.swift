@@ -7,6 +7,17 @@
 
 import Foundation
 
+#if DEBUG
+/// `-unlockall` fills progress and stats in with plausible numbers so the menu
+/// screens can be photographed. Those numbers must never reach disk: the first
+/// tap on a ball in the clubhouse, or the first hole finished, would otherwise
+/// write the fake save over the real one and there is no way back from that.
+/// Both stores check this before writing, so nothing has to remember to.
+enum DemoProgress {
+    static let isActive = ProcessInfo.processInfo.arguments.contains("-unlockall")
+}
+#endif
+
 struct CourseRecord: Codable {
     var completed = false
     var bestTotal: Int?
@@ -58,6 +69,9 @@ struct GameProgress: Codable {
     }
 
     func save() {
+        #if DEBUG
+        guard !DemoProgress.isActive else { return }
+        #endif
         if let data = try? JSONEncoder().encode(self) {
             UserDefaults.standard.set(data, forKey: Self.storageKey)
         }

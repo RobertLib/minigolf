@@ -30,22 +30,24 @@ struct FinalRatingView: View {
                     Spacer().frame(height: 30)
 
                     Image(systemName: rating.symbol)
-                        .font(.system(size: 84))
+                        .scaledFont(84, relativeTo: .largeTitle)
                         .foregroundStyle(
                             LinearGradient(colors: [.yellow, .orange],
                                            startPoint: .top, endPoint: .bottom))
                         .shadow(color: .yellow.opacity(0.5), radius: 20)
                         .scaleEffect(appeared ? 1 : 0.2)
                         .animation(.spring(response: 0.6, dampingFraction: 0.55), value: appeared)
+                        .accessibilityHidden(true)
 
                     Text("You finished all \(LevelLibrary.totalHoles) holes!")
                         .font(.system(.headline, design: .rounded))
                         .foregroundStyle(.white.opacity(0.8))
 
                     Text(rating.title)
-                        .font(.system(size: 40, weight: .heavy, design: .rounded))
+                        .scaledFont(40, weight: .heavy, design: .rounded, relativeTo: .largeTitle)
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
 
                     Text(rating.message)
                         .font(.system(.body, design: .rounded))
@@ -62,9 +64,11 @@ struct FinalRatingView: View {
 
                     HStack(spacing: 12) {
                         HUDChip(text: "\(controller.progress.starsEarned)/\(LevelLibrary.totalHoles * HoleStars.max)",
-                                systemImage: "star.fill")
+                                systemImage: "star.fill",
+                                voiceOverLabel: Text("\(controller.progress.starsEarned) of \(LevelLibrary.totalHoles * HoleStars.max) stars"))
                         HUDChip(text: "\(controller.progress.totalBonusStars)/\(LevelLibrary.totalBonusStars)",
-                                systemImage: "sparkles")
+                                systemImage: "sparkles",
+                                voiceOverLabel: Text("\(controller.progress.totalBonusStars) of \(LevelLibrary.totalBonusStars) bonus stars"))
                     }
 
                     VStack(spacing: 10) {
@@ -114,7 +118,7 @@ struct FinalRatingView: View {
         let par = LevelLibrary.coursePar(course)
         return HStack {
             Image(systemName: course.symbolName)
-                .font(.system(size: 18, weight: .bold))
+                .scaledFont(18, weight: .bold, relativeTo: .headline)
                 .foregroundStyle(.white)
                 .frame(width: 36, height: 36)
                 .background(Circle().fill(course.theme.uiPrimary))
@@ -133,15 +137,18 @@ struct FinalRatingView: View {
             HStack(spacing: 2) {
                 ForEach(0..<3, id: \.self) { i in
                     Image(systemName: i < record.stars ? "star.fill" : "star")
-                        .font(.system(size: 13))
+                        .scaledFont(13, relativeTo: .footnote)
                         .foregroundStyle(.yellow)
                 }
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("\(record.stars) out of 3 stars"))
         }
         .padding(12)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(.white.opacity(0.12))
         )
+        .accessibilityElement(children: .combine)
     }
 }

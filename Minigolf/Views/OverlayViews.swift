@@ -16,15 +16,18 @@ struct HoleCompleteOverlay: View {
 
     var body: some View {
         OverlayCard {
+            // Decoration: the rating right below says the same thing in words.
             Text(result.rating.emoji)
-                .font(.system(size: 58))
+                .scaledFont(58, relativeTo: .largeTitle)
                 .scaleEffect(appeared ? 1 : 0.3)
                 .animation(.spring(response: 0.45, dampingFraction: 0.55), value: appeared)
+                .accessibilityHidden(true)
 
             Text(result.rating.title)
-                .font(.system(size: 32, weight: .heavy, design: .rounded))
+                .scaledFont(32, weight: .heavy, design: .rounded, relativeTo: .largeTitle)
                 .foregroundStyle(result.rating.tint)
                 .multilineTextAlignment(.center)
+                .accessibilityAddTraits(.isHeader)
 
             Text(result.rating.subtitle)
                 .font(.system(.subheadline, design: .rounded))
@@ -104,11 +107,13 @@ struct CourseSuccessOverlay: View {
     var body: some View {
         OverlayCard {
             Text("🏆")
-                .font(.system(size: 54))
+                .scaledFont(54, relativeTo: .largeTitle)
+                .accessibilityHidden(true)
 
             Text("Course Complete!")
-                .font(.system(size: 30, weight: .heavy, design: .rounded))
+                .scaledFont(30, weight: .heavy, design: .rounded, relativeTo: .largeTitle)
                 .foregroundStyle(.primary)
+                .accessibilityAddTraits(.isHeader)
 
             Text(summary.course.displayName)
                 .font(.system(.headline, design: .rounded))
@@ -172,10 +177,12 @@ private struct ScorecardView: View {
                     ForEach(start..<min(start + perRow, summary.holeScores.count), id: \.self) { i in
                         VStack(spacing: 2) {
                             Text("\(i + 1)")
-                                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                .scaledFont(10, weight: .semibold, design: .rounded,
+                                            relativeTo: .caption2)
                                 .foregroundStyle(.secondary)
                             Text("\(summary.holeScores[i])")
-                                .font(.system(size: 14, weight: .heavy, design: .rounded))
+                                .scaledFont(14, weight: .heavy, design: .rounded,
+                                            relativeTo: .footnote)
                                 .monospacedDigit()
                                 .foregroundStyle(.white)
                                 .frame(width: 24, height: 24)
@@ -184,6 +191,11 @@ private struct ScorecardView: View {
                                         .fill(color(score: summary.holeScores[i], par: par(at: i)))
                                 )
                         }
+                        // Read as a scorecard line rather than two loose
+                        // numbers, and colour alone is never the answer.
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel(Text("Hole \(i + 1), par \(par(at: i))"))
+                        .accessibilityValue(Text("\(summary.holeScores[i]) strokes"))
                     }
                 }
             }
@@ -211,11 +223,13 @@ struct GameOverOverlay: View {
     var body: some View {
         OverlayCard {
             Text("😢")
-                .font(.system(size: 54))
+                .scaledFont(54, relativeTo: .largeTitle)
+                .accessibilityHidden(true)
 
             Text("Game Over")
-                .font(.system(size: 34, weight: .heavy, design: .rounded))
+                .scaledFont(34, weight: .heavy, design: .rounded, relativeTo: .largeTitle)
                 .foregroundStyle(.red)
+                .accessibilityAddTraits(.isHeader)
 
             Text("You ran out of lives on hole \(controller.holeNumber). Practice makes perfect — give it another shot!")
                 .font(.system(.subheadline, design: .rounded))
@@ -261,7 +275,8 @@ struct PauseOverlay: View {
     var body: some View {
         OverlayCard {
             Text("Paused")
-                .font(.system(size: 30, weight: .heavy, design: .rounded))
+                .scaledFont(30, weight: .heavy, design: .rounded, relativeTo: .largeTitle)
+                .accessibilityAddTraits(.isHeader)
 
             Text(controller.currentLevel.name)
                 .font(.system(.headline, design: .rounded))
@@ -269,17 +284,17 @@ struct PauseOverlay: View {
 
             HStack(spacing: 16) {
                 toggleButton(icon: soundOn ? "speaker.wave.2.fill" : "speaker.slash.fill",
-                             active: soundOn) {
+                             label: "Sound Effects", active: soundOn) {
                     soundOn.toggle()
                     SoundManager.shared.soundEnabled = soundOn
                 }
                 toggleButton(icon: musicOn ? "music.note" : "music.note.list",
-                             active: musicOn) {
+                             label: "Music", active: musicOn) {
                     musicOn.toggle()
                     SoundManager.shared.musicEnabled = musicOn
                 }
                 toggleButton(icon: "iphone.radiowaves.left.and.right",
-                             active: hapticsOn) {
+                             label: "Haptics", active: hapticsOn) {
                     hapticsOn.toggle()
                     Haptics.shared.enabled = hapticsOn
                 }
@@ -302,6 +317,9 @@ struct PauseOverlay: View {
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(!controller.canRestartHole)
                 .opacity(controller.canRestartHole ? 1 : 0.5)
+                .accessibilityLabel(controller.isSingleHole
+                                    ? Text("Restart hole")
+                                    : Text("Restart hole, costs one life"))
 
                 Button {
                     controller.quitRun()
@@ -320,13 +338,18 @@ struct PauseOverlay: View {
         return "Quit Course"
     }
 
-    private func toggleButton(icon: String, active: Bool, action: @escaping () -> Void) -> some View {
+    private func toggleButton(icon: String, label: LocalizedStringKey, active: Bool,
+                              action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: icon)
-                .font(.system(size: 18, weight: .bold))
+                .scaledFont(18, weight: .bold, relativeTo: .headline)
                 .foregroundStyle(active ? .white : .white.opacity(0.4))
                 .frame(width: 52, height: 52)
                 .background(Circle().fill(active ? .green.opacity(0.7) : .white.opacity(0.12)))
         }
+        .accessibilityLabel(Text(label))
+        // A circle that fills in when it is on is a switch, and saying so is
+        // what gets VoiceOver to read "on"/"off" instead of just "button".
+        .accessibilityAddTraits(active ? [.isToggle, .isSelected] : .isToggle)
     }
 }

@@ -7,14 +7,21 @@
 //
 
 import Foundation
-import AVFoundation
+// See `SoundManager` for why this import is `@preconcurrency`: the engine, its
+// nodes and the decoded buffers all move between `queue` and `loader`, and none
+// of those AVFAudio types carries a Sendable annotation saying that is allowed.
+@preconcurrency import AVFoundation
 import UIKit
 
 /// One playlist per world, plus the one the menus play.
 ///
 /// The tracks themselves are listed in `MusicLibrary.swift`, which is generated
 /// from `Tools/music_sources.json` — this enum only names the worlds.
-enum MusicTrack: String {
+///
+/// `nonisolated` so the name of a world, and the list of files behind it, can be
+/// read from the audio queue as well as from the menu that asks for it. It is a
+/// name and a few string constants; there is nothing here to isolate.
+nonisolated enum MusicTrack: String {
     case menu
     case garden
     case desert
@@ -43,7 +50,14 @@ enum MusicTrack: String {
 ///
 /// State lives on `queue`, the serial queue `SoundManager` also uses for
 /// effects; decoding is the one thing pushed off it, onto `loader`.
-final class MusicPlayer {
+///
+/// `nonisolated` because that queue is the isolation, and the main actor —
+/// which everything else in the app defaults to — is the one place this must
+/// not run: decoding a minute of AAC there is the hitch the split exists to
+/// avoid. The compiler cannot check a queue the way it checks an actor, so the
+/// rule is stated here instead: every stored property below is touched only
+/// from `queue`, and the entry points are called from it.
+nonisolated final class MusicPlayer: @unchecked Sendable {
 
     private struct Deck {
         let player = AVAudioPlayerNode()
@@ -278,7 +292,7 @@ final class MusicPlayer {
     /// be stepped by hand. Both sides are shaped equal-power, which keeps the
     /// crossfade from dipping in the middle the way a pair of linear ramps does.
     private func fade(deck index: Int, to target: Float,
-                      completion: (() -> Void)? = nil) {
+                      completion: (@Sendable () -> Void)? = nil) {
         decks[index].fadeGeneration += 1
         let generation = decks[index].fadeGeneration
         let mixer = decks[index].mixer
