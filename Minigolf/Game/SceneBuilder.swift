@@ -59,7 +59,9 @@ enum GamePhysics {
     static let bumperBounce: Float = 0.9
     /// Slowest approach worth bouncing; below this the ball is just leaning.
     static let minBounceSpeed: Float = 0.12
-    /// Backstop against a rebound loop pumping energy into the ball.
+    /// Ceiling on the speed a rebound may send the ball away at, so a ball that
+    /// came off a boost pad still banks off the boards instead of leaving them
+    /// faster than the course can be played at.
     static let maxBallSpeed: Float = 5.5
 
     /// How hard a turntable bends the ball's path, per rad/s of disc speed. The

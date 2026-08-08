@@ -1548,10 +1548,11 @@ final class GameSceneCoordinator {
     /// well above putting speed: left alone the ball loses every bit of its
     /// normal velocity and slides along the boards instead of banking off them.
     /// `impulseDirection` is the contact normal pointing back at the ball, so
-    /// the missing rebound can simply be added on top.
+    /// the rebound is put in by hand: the ball leaves along that normal at its
+    /// approach speed times the surface's bounce, whatever speed the contact
+    /// itself left it with.
     private func rebound(ball: ModelEntity, event: CollisionEvents.Began, restitution: Float) {
         guard lastBounceTime != elapsed else { return }   // one rebound per frame
-        guard simd_length(ballVelocity) < GamePhysics.maxBallSpeed else { return }
 
         let direction = event.impulseDirection
         guard simd_length(direction) > 0.5 else { return }
@@ -1572,8 +1573,28 @@ final class GameSceneCoordinator {
         let approach = min(simd_dot(previousBallVelocity, normal), simd_dot(ballVelocity, normal))
         guard approach < -GamePhysics.minBounceSpeed else { return }
 
+        // How much of the approach the solver has already taken off the ball.
+        // A contact opened at arm's length — the solver reaches a couple of
+        // centimetres ahead of the surface — carries next to no impulse, because
+        // the ball has not actually arrived yet and nothing was resolved. Adding
+        // the rebound on top of a still-approaching ball only slows it: it
+        // arrives a frame later at what is left of its speed, that frame raises
+        // no second `Began`, and a head-on putt dies against the board it should
+        // have banked off. Whatever the solver did or did not do, aim for the
+        // same outgoing speed, and keep the reading inside what a contact can
+        // physically have done so a missing or overstated impulse cannot double
+        // the bounce or cancel it.
+        let absorbed = Float(event.impulse) / GamePhysics.ballMass
+        let current = max(approach, min(0, approach + absorbed))
+        // A rebound never returns more than it was given, so it cannot pump a
+        // bumper arena full of energy; the cap is only there to stop a ball that
+        // arrived on a boost pad from leaving the boards faster than the course
+        // can be played at.
+        let target = min(-approach * restitution, GamePhysics.maxBallSpeed)
+        guard target > current else { return }
+
         lastBounceTime = elapsed
-        ball.applyLinearImpulse(normal * (-approach * restitution * GamePhysics.ballMass),
+        ball.applyLinearImpulse(normal * ((target - current) * GamePhysics.ballMass),
                                 relativeTo: nil)
     }
 
