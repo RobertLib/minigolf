@@ -33,6 +33,12 @@ zvuky jsou syntetizované WAVy přibalené v bundlu.
   u mlýnů a bran, záměrně ignoruje.
 - **Povrchy:** tráva, písek, **bahno/popel** (extrémní tlumení), **led** (téměř bez
   odporu), **voda** i **láva** jako trestné jamky.
+- **Prostředí kolem jamky** — každá jamka stojí na vlastním **dlážděném lemu**
+  s obrubníkem (v neonových světech svítícím), okolní terén se zvedá do **vln**,
+  na obzoru stojí kulisy podle světa (kopce s hájem, stolové hory, chrámová
+  pyramida, zasněžené štíty, mrakodrapy, kouřící sopky, tovární komíny, maják,
+  plynný obr s prstencem) a ve vzduchu se pohybuje **počasí**: pyl, písek
+  v poryvu, světlušky, sníh, jiskry, uhlíky, pára, déšť a prach ve vakuu.
 - **Bonusová hvězda na každé jamce** — schovaná mimo hlavní linii, sbírá se
   projetím míčku a započítá se po dokončení jamky (108 celkem).
 - **Trénink:** u každého světa lze otevřít mřížku jamek a hrát jednotlivé jamky
@@ -82,6 +88,8 @@ Minigolf/
 │   ├── GameSceneCoordinator.swift  živá scéna: míření, fyzika, kamera, jamka,
 │   │                               povrchy, silová pole, portály, loopingy, děla
 │   ├── SceneBuilder.swift       stavba RealityKit scény z definice levelu
+│   ├── Scenery.swift            prostředí mimo green: obloha, terén s vlnami,
+│   │                            dlážděný lem jamky, obzor a počasí ve vzduchu
 │   ├── Obstacles.swift          stavitelé překážek + animace kinematiky
 │   ├── Critters.swift           postavičky světů: modely + chůze po greenu
 │   ├── AimGuide.swift           předpověď dráhy putu ze statické geometrie

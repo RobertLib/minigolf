@@ -307,8 +307,10 @@ enum SceneBuilder {
 
         let materials = ThemeMaterials(theme: theme, course: level.course)
 
-        buildSky(theme: theme, course: level.course, into: root)
-        buildTerrain(level: level, materials: materials, into: root)
+        Scenery.buildSky(theme: theme, course: level.course, into: root)
+        Scenery.buildTerrain(level: level, theme: theme, materials: materials, into: root)
+        Scenery.buildApron(level: level, theme: theme, into: root)
+        Scenery.buildHorizon(level: level, theme: theme, into: root)
         buildLights(theme: theme, level: level, into: root)
 
         // Floors: slabs are drawn per patch, but collision is merged per height
@@ -371,6 +373,8 @@ enum SceneBuilder {
         }
 
         buildDecorations(level: level, theme: theme, into: root)
+        Scenery.buildWeather(level: level, theme: theme, into: root,
+                             animated: &outputs.animated)
 
         let ball = buildBall(at: SIMD3(level.tee.x, GamePhysics.ballRadius + 0.002, level.tee.y),
                              skin: skin)
@@ -733,29 +737,6 @@ enum SceneBuilder {
 
     // MARK: Environment
 
-    private static func buildSky(theme: CourseTheme, course: CourseType, into root: Entity) {
-        guard let texture = TextureFactory.sky(theme: theme, key: course.rawValue) else { return }
-        var material = UnlitMaterial()
-        material.color = .init(tint: .white, texture: .init(texture))
-        let sky = ModelEntity(mesh: .generateSphere(radius: 28), materials: [material])
-        sky.name = "sky"
-        // Flip so the inside of the sphere is visible.
-        sky.scale = SIMD3(-1, 1, 1)
-        sky.position = SIMD3(0, 0, -1.5)
-        root.addChild(sky)
-    }
-
-    private static func buildTerrain(level: LevelDefinition, materials: ThemeMaterials, into root: Entity) {
-        let bounds = level.bounds
-        let entity = ModelEntity(
-            mesh: .generateBox(width: bounds.size.x + 14, height: 0.05, depth: bounds.size.y + 14),
-            materials: [materials.ground]
-        )
-        entity.name = "terrain"
-        entity.position = SIMD3(bounds.center.x, -0.25, bounds.center.y)
-        root.addChild(entity)
-    }
-
     /// How far this hole's shadow cascade has to reach.
     ///
     /// The 5 m default is fitted to a camera a couple of metres above the felt.
@@ -825,22 +806,44 @@ enum SceneBuilder {
     private static func buildDecorations(level: LevelDefinition, theme: CourseTheme, into root: Entity) {
         var rng = SplitMix64(seed: UInt64(level.course.order * 100 + level.number))
         let bounds = level.bounds
+        // Nothing is planted on the paving, so the apron reads as a swept path
+        // rather than as ground that happens to be a different colour.
         let noGo = level.floors.map { $0.rect.expanded(by: 0.32) }
-
-        let count = 22
+            + [bounds.expanded(by: Scenery.apronWidth + 0.12)]
         var placed: [SIMD2<Float>] = []
-        for _ in 0..<count {
-            // Sample in a band around the course.
-            let x = rng.float(in: (bounds.minX - 2.4)...(bounds.maxX + 2.4))
-            let z = rng.float(in: (bounds.minZ - 2.2)...(bounds.maxZ + 1.6))
-            let point = SIMD2(x, z)
-            if noGo.contains(where: { $0.contains(point) }) { continue }
-            if placed.contains(where: { simd_distance($0, point) < 0.5 }) { continue }
-            placed.append(point)
 
+        /// One prop, if the spot is free. Props further out are scaled up: the
+        /// band nearest the boards is what the player looks past all game, so
+        /// it stays fine-grained, while the outer band has to hold its own
+        /// against the hills behind it.
+        func plant(at point: SIMD2<Float>, scale: Float, spacing: Float) {
+            if noGo.contains(where: { $0.contains(point) }) { return }
+            if placed.contains(where: { simd_distance($0, point) < spacing }) { return }
+            placed.append(point)
             let decor = makeDecoration(course: level.course, theme: theme, rng: &rng)
-            decor.position = SIMD3(point.x, -0.225, point.y)
+            decor.position = SIMD3(point.x, Scenery.groundY, point.y)
+            decor.scale = SIMD3(repeating: scale)
             root.addChild(decor)
+        }
+
+        // Close band: the fringe right against the boards.
+        for _ in 0..<24 {
+            plant(at: SIMD2(rng.float(in: (bounds.minX - 2.4)...(bounds.maxX + 2.4)),
+                            rng.float(in: (bounds.minZ - 2.2)...(bounds.maxZ + 1.6))),
+                  scale: rng.float(in: 0.85...1.15), spacing: 0.5)
+        }
+
+        // Outer ring, out to where the skyline starts. Sampled on a ring rather
+        // than in a rectangle so the count does not have to grow with the area.
+        let outerCount = 14
+        let half = bounds.size / 2
+        for i in 0..<outerCount {
+            let slice = 2 * Float.pi / Float(outerCount)
+            let angle = (Float(i) + rng.float(in: 0.1...0.9)) * slice
+            let distance = rng.float(in: 2.8...7.0)
+            plant(at: SIMD2(bounds.center.x + cos(angle) * (half.x + distance),
+                            bounds.center.y + sin(angle) * (half.y + distance)),
+                  scale: rng.float(in: 1.3...2.1), spacing: 0.9)
         }
     }
 
@@ -1288,7 +1291,6 @@ struct ThemeMaterials {
     let pole: PhysicallyBasedMaterial
     let flag: PhysicallyBasedMaterial
     let teeMarker: PhysicallyBasedMaterial
-    let ground: any RealityKit.Material
     let accent: PhysicallyBasedMaterial
     /// Speed bumps: felt lifted toward the light so a 4 cm crest still reads.
     let bumpCrest: PhysicallyBasedMaterial
@@ -1383,24 +1385,6 @@ struct ThemeMaterials {
         teeMat.baseColor = .init(tint: theme.feltStripe.withAlphaComponent(1))
         teeMat.roughness = 0.9
         teeMarker = teeMat
-
-        if theme.emissiveWalls, let groundTexture {
-            // Tron-style glowing grid: unlit keeps the night truly dark.
-            var neonGround = UnlitMaterial()
-            neonGround.color = .init(tint: .white, texture: ThemeMaterials.tiled(groundTexture))
-            neonGround.textureCoordinateTransform = .init(scale: SIMD2(12, 12))
-            ground = neonGround
-        } else {
-            var groundMat = PhysicallyBasedMaterial()
-            if let groundTexture {
-                groundMat.baseColor = .init(tint: .white, texture: ThemeMaterials.tiled(groundTexture))
-                groundMat.textureCoordinateTransform = .init(scale: SIMD2(12, 12))
-            } else {
-                groundMat.baseColor = .init(tint: theme.groundColor)
-            }
-            groundMat.roughness = 1.0
-            ground = groundMat
-        }
 
         accent = SceneBuilder.simpleMaterial(theme.accent, roughness: 0.55)
 
@@ -1504,6 +1488,34 @@ struct ThemeMaterials {
         return material
     }
 
+    /// The terrain under and around the course, tiled to order.
+    ///
+    /// The slab is sized from the hole, so a fixed repeat count would draw
+    /// metre-wide speckle on a short hole and three-metre speckle on a long
+    /// one. The caller passes the count that keeps a tile the same size on
+    /// screen whatever it is covering.
+    func groundMaterial(tiles: Float) -> any RealityKit.Material {
+        let repeats = SIMD2<Float>(max(tiles, 1), max(tiles, 1))
+        guard let groundTexture else {
+            var flat = PhysicallyBasedMaterial()
+            flat.baseColor = .init(tint: theme.groundColor)
+            flat.roughness = 1.0
+            return flat
+        }
+        if theme.emissiveWalls {
+            // Tron-style glowing grid: unlit keeps the night truly dark.
+            var neon = UnlitMaterial()
+            neon.color = .init(tint: .white, texture: ThemeMaterials.tiled(groundTexture))
+            neon.textureCoordinateTransform = .init(scale: repeats)
+            return neon
+        }
+        var dirt = PhysicallyBasedMaterial()
+        dirt.baseColor = .init(tint: .white, texture: ThemeMaterials.tiled(groundTexture))
+        dirt.textureCoordinateTransform = .init(scale: repeats)
+        dirt.roughness = 1.0
+        return dirt
+    }
+
     /// Wraps a texture with a repeating sampler.
     static func tiled(_ resource: TextureResource) -> MaterialParameters.Texture {
         let descriptor = MTLSamplerDescriptor()
@@ -1525,5 +1537,17 @@ extension UIColor {
         guard getRed(&r, green: &g, blue: &b, alpha: &a) else { return self }
         let k = 1 - amount
         return UIColor(red: r * k, green: g * k, blue: b * k, alpha: a)
+    }
+
+    /// Straight mix toward `other`. Used for aerial perspective on the skyline,
+    /// where every colour is pulled part of the way to the sky.
+    func blended(with other: UIColor, amount: CGFloat) -> UIColor {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 1
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 1
+        guard getRed(&r, green: &g, blue: &b, alpha: &a),
+              other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2) else { return self }
+        let t = min(max(amount, 0), 1)
+        return UIColor(red: r + (r2 - r) * t, green: g + (g2 - g) * t,
+                       blue: b + (b2 - b) * t, alpha: a)
     }
 }

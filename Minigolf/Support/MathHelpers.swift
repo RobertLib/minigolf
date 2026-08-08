@@ -9,7 +9,9 @@ import CoreGraphics
 
 // MARK: - Deterministic random generator (stable decoration layouts per level)
 
-struct SplitMix64: RandomNumberGenerator {
+/// Explicitly nonisolated: the texture factory draws whole worlds of speckle
+/// on a background thread, and the layout it draws comes out of one of these.
+nonisolated struct SplitMix64: RandomNumberGenerator {
     private var state: UInt64
 
     init(seed: UInt64) {

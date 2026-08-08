@@ -269,6 +269,49 @@ enum TextureFactory {
                     endCenter: sunCenter, endRadius: s * 0.16,
                     options: []
                 )
+                drawClouds(in: ctx, size: s, theme: theme)
+            }
+        }
+    }
+
+    /// Banks of cloud in the band just above the horizon.
+    ///
+    /// Only the daylit worlds get them — a starfield wants an empty sky. The
+    /// tint is mixed from the world's own high sky rather than being white, so
+    /// the storm gets slate, the volcano gets ash and the garden gets cumulus
+    /// without any of them needing a setting of their own. They are kept to the
+    /// lower half of the sphere, where the equirect mapping still stretches
+    /// them gently instead of smearing them round the pole.
+    private nonisolated static func drawClouds(in ctx: CGContext, size s: CGFloat,
+                                               theme: CourseTheme) {
+        var top: (r: CGFloat, g: CGFloat, b: CGFloat, a: CGFloat) = (1, 1, 1, 1)
+        guard theme.skyTop.getRed(&top.r, green: &top.g, blue: &top.b, alpha: &top.a) else { return }
+        let tint = UIColor(red: top.r + (1 - top.r) * 0.72,
+                           green: top.g + (1 - top.g) * 0.72,
+                           blue: top.b + (1 - top.b) * 0.72, alpha: 1)
+
+        var rng = SplitMix64(seed: 1301)
+        for _ in 0..<14 {
+            let cx = CGFloat(rng.float(in: 0...1)) * s
+            let cy = CGFloat(rng.float(in: 0.52...0.80)) * s
+            let scale = CGFloat(rng.float(in: 0.55...1.4))
+            let alpha = CGFloat(rng.float(in: 0.18...0.42))
+            // A bank is a handful of overlapping puffs; each puff is a radial
+            // fade, so the bank has no outline to give away how it was drawn.
+            for _ in 0..<6 {
+                let px = cx + CGFloat(rng.float(in: -34...34)) * scale
+                let py = cy + CGFloat(rng.float(in: -9...9)) * scale
+                let radius = CGFloat(rng.float(in: 14...34)) * scale
+                let puff = CGGradient(
+                    colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!,
+                    colors: [tint.withAlphaComponent(alpha).cgColor,
+                             tint.withAlphaComponent(0).cgColor] as CFArray,
+                    locations: [0, 1]
+                )!
+                ctx.drawRadialGradient(puff,
+                                       startCenter: CGPoint(x: px, y: py), startRadius: radius * 0.2,
+                                       endCenter: CGPoint(x: px, y: py), endRadius: radius,
+                                       options: [])
             }
         }
     }

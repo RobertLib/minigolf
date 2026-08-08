@@ -35,6 +35,14 @@ struct AnimatedObstacle {
         case gustBlades(speed: Float, period: Float, phase: Float)
         /// Ring travelling in or out on a loop: the magnet's field lines.
         case pulse(from: Float, to: Float, speed: Float, phase: Float)
+        /// A speck of weather looping through a box of air. `origin` is the low
+        /// corner of that box and `span` its size; the speck starts at `seed`
+        /// inside it and wraps round when it runs out the far side. Nothing is
+        /// ever spawned or retired, so a couple of dozen specks read as
+        /// continuous snow — and, being a pure function of the clock, they cost
+        /// no state to rewind when a hole restarts.
+        case drift(origin: SIMD3<Float>, span: SIMD3<Float>, seed: SIMD3<Float>,
+                   velocity: SIMD3<Float>, sway: Float, phase: Float)
     }
 
     var kind: Kind
@@ -78,7 +86,23 @@ struct AnimatedObstacle {
             let t = (time * speed + phase).truncatingRemainder(dividingBy: 1)
             let scale = from + (to - from) * t
             entity.scale = SIMD3(scale, 1, scale)
+        case .drift(let origin, let span, let seed, let velocity, let sway, let phase):
+            let travelled = seed + velocity * time
+            // The sway is deliberately not wrapped: it is a wobble around the
+            // looped position, so a speck never jumps sideways at the seam.
+            entity.position = SIMD3(
+                origin.x + Self.looped(travelled.x, span.x) + sin(time * 0.8 + phase) * sway,
+                origin.y + Self.looped(travelled.y, span.y),
+                origin.z + Self.looped(travelled.z, span.z) + cos(time * 0.62 + phase) * sway)
         }
+    }
+
+    /// `value` folded back into `0..<span`, in either direction. A zero span
+    /// pins the axis, which is how a speck that only falls stays put in X.
+    static func looped(_ value: Float, _ span: Float) -> Float {
+        guard span > 0 else { return 0 }
+        let m = value.truncatingRemainder(dividingBy: span)
+        return m < 0 ? m + span : m
     }
 
     /// ∫ gust dt for `gust(t) = 0.5 + 0.5·sin(2πt/T + φ)`.
