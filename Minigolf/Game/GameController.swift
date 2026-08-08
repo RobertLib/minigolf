@@ -288,7 +288,14 @@ final class GameController {
     /// Draws a world's textures ahead of time, off the main thread. Menus are the
     /// place for this: the work is the same either way, but here a long frame
     /// costs nothing, whereas inside a hole it is a visible hitch.
+    ///
+    /// The shared meshes go the same way, for the same reason. Unlike the
+    /// textures they cannot be built off the main thread — `MeshResource` is
+    /// main-actor only — so they are built here, on a menu, rather than moved
+    /// off the thread that cannot escape them.
     private func prewarmTextures(for courses: [CourseType]) {
+        Prim.prewarm()
+        Scenery.prewarmSky()
         Task {
             for course in courses {
                 await TextureFactory.prewarm(course: course)

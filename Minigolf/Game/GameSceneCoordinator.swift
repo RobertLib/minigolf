@@ -62,6 +62,15 @@ final class GameSceneCoordinator {
     /// True while the current aim would drop the ball, so the "in the cup"
     /// tick only fires once per line.
     private var guideOnTarget = false
+    /// The aim has moved and the indicator has not caught up yet.
+    ///
+    /// Touch events arrive faster than the display refreshes — on a 120 Hz panel
+    /// twice as fast — and every one of them used to re-trace the putt through
+    /// the level's boards and lay out all forty dots of the guide. Half that
+    /// work was overwritten before a single pixel of it reached the screen. The
+    /// drag now only records where the aim got to, and the indicator is rebuilt
+    /// once, from the latest value, on the frame that will actually show it.
+    private var aimNeedsRedraw = false
 
     // Motion tracking
     private var lastBallPosition = SIMD3<Float>(0, 0, 0)
@@ -396,6 +405,10 @@ final class GameSceneCoordinator {
 
         case .aiming:
             aimRing.position = ball.position + SIMD3(0, -GamePhysics.ballRadius + 0.004, 0)
+            if aimNeedsRedraw {
+                aimNeedsRedraw = false
+                updateArrow(ball: ball)
+            }
 
         case .ballMoving:
             motionTime += dt
@@ -538,7 +551,7 @@ final class GameSceneCoordinator {
             if introTime > 0.25 { skipIntro() }
             return
         }
-        guard state == .waiting || state == .aiming, let controller, let built else { return }
+        guard state == .waiting || state == .aiming, let controller, built != nil else { return }
         guard case .none = controller.overlay else { return }
 
         let dx = Float(translation.width)
@@ -550,6 +563,7 @@ final class GameSceneCoordinator {
             arrowRoot.isEnabled = false
             guideRenderer?.hide()
             guideOnTarget = false
+            aimNeedsRedraw = false
             controller.setAim(power: 0, aiming: state == .aiming)
             return
         }
@@ -566,7 +580,8 @@ final class GameSceneCoordinator {
 
         controller.setAim(power: aimPower, aiming: true)
 
-        updateArrow(ball: built.ball)
+        // Redrawn on the next frame, from whatever the aim has reached by then.
+        aimNeedsRedraw = true
     }
 
     func aimEnded() {
@@ -588,6 +603,7 @@ final class GameSceneCoordinator {
         arrowRoot.isEnabled = false
         guideRenderer?.hide()
         guideOnTarget = false
+        aimNeedsRedraw = false
         controller?.setAim(power: 0, aiming: false)
     }
 
@@ -671,6 +687,9 @@ final class GameSceneCoordinator {
         aimRing.isEnabled = false
         guideRenderer?.hide()
         guideOnTarget = false
+        // A drag event that landed after the shot was fired must not put the
+        // arrow back on the felt a frame later.
+        aimNeedsRedraw = false
     }
 
     private func showAimRing() {

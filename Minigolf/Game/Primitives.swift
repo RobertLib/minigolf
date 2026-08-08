@@ -86,6 +86,21 @@ enum Prim {
         return ModelEntity(mesh: mesh, materials: [material])
     }
 
+    /// Forces the shared meshes into existence.
+    ///
+    /// They are `static let`, so each is built the first time something asks for
+    /// it — which, left alone, is inside the first hole of a session, on the
+    /// very frame that hole is assembled. Touching them from a menu moves that
+    /// work to a screen where a long frame costs nothing, the same bargain
+    /// `TextureFactory.prewarm` makes. Cheap to call twice: after the first
+    /// time it is four pointer reads.
+    static func prewarm() {
+        _ = unitSphere
+        _ = unitBox
+        _ = unitCone
+        _ = unitCylinder
+    }
+
     private static var roundedBoxes: [RoundedBoxKey: MeshResource] = [:]
 
     private struct RoundedBoxKey: Hashable {

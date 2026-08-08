@@ -48,15 +48,33 @@ enum Scenery {
 
     // MARK: - Sky
 
+    /// The dome, built once for the whole app.
+    ///
+    /// It is the same 28 m sphere on every hole of every world — only the
+    /// texture painted on it changes — and a sphere is the dearest shape
+    /// `MeshResource` makes. Generating it per hole was several milliseconds of
+    /// the freeze at the start of every single one, spent arriving at a mesh
+    /// identical to the one the hole before had just thrown away.
+    private static let skyMesh = MeshResource.generateSphere(radius: 28)
+
+    /// Builds the dome ahead of the hole that wants it. See `Prim.prewarm`.
+    static func prewarmSky() {
+        _ = skyMesh
+    }
+
     static func buildSky(theme: CourseTheme, course: CourseType, into root: Entity) {
         guard let texture = TextureFactory.sky(theme: theme, key: course.rawValue) else { return }
         var material = UnlitMaterial()
         material.color = .init(tint: .white, texture: .init(texture))
-        let sky = ModelEntity(mesh: .generateSphere(radius: 28), materials: [material])
+        let sky = ModelEntity(mesh: skyMesh, materials: [material])
         sky.name = "sky"
         // Flip so the inside of the sphere is visible.
         sky.scale = SIMD3(-1, 1, 1)
         sky.position = SIMD3(0, 0, -1.5)
+        // A 56 m sphere with the course inside it has no business in the shadow
+        // map: whichever way the sun points, it is either behind the light or
+        // wrapped right round the cascade.
+        SceneBuilder.castsNoShadow(sky)
         root.addChild(sky)
     }
 
@@ -68,12 +86,16 @@ enum Scenery {
         let size = bounds.size + SIMD2(repeating: terrainMargin)
         // Speckle stays the same size on screen whatever the hole measures: the
         // tile count follows the slab instead of being fixed at its old width.
-        let slab = ModelEntity(
-            mesh: .generateBox(width: size.x, height: 0.05, depth: size.y),
-            materials: [materials.groundMaterial(tiles: max(size.x, size.y) / 1.25)]
-        )
+        // A plain box, so the shared unit mesh does it — the slab is a different
+        // size on every hole, and generating one per hole bought nothing a scale
+        // on the transform does not.
+        let slab = Prim.box(width: size.x, height: 0.05, depth: size.y,
+                            material: materials.groundMaterial(tiles: max(size.x, size.y) / 1.25))
         slab.name = "terrain"
         slab.position = SIMD3(bounds.center.x, groundY - 0.025, bounds.center.y)
+        // The ground is the thing shadows land on; it has nothing below it to
+        // land on itself.
+        SceneBuilder.castsNoShadow(slab)
         root.addChild(slab)
 
         buildMounds(level: level, theme: theme, into: root)
@@ -113,6 +135,10 @@ enum Scenery {
             dome.position = SIMD3(bounds.center.x + cos(angle) * (half.x + distance),
                                   groundY - 0.02,
                                   bounds.center.y + sin(angle) * (half.y + distance))
+            // Sunk to the waist in the slab and never closer than three metres
+            // out: what little shadow a swell this shallow throws falls on
+            // terrain the player is not looking at.
+            SceneBuilder.castsNoShadow(dome)
             root.addChild(dome)
         }
     }
@@ -218,13 +244,20 @@ enum Scenery {
                                       bounds.center.y + sin(angle) * (half.y + distance))
             landmark.orientation = simd_quatf(angle: rng.float(in: 0...(2 * .pi)),
                                               axis: SIMD3(0, 1, 0))
+            // The skyline is the heaviest thing in the scene by model count and
+            // the least use in the shadow map: it stands 8 m or more past the
+            // boards, so its shadow is thrown away from the course and mostly
+            // falls outside the cascade anyway.
+            SceneBuilder.castsNoShadow(landmark)
             root.addChild(landmark)
         }
 
         // The orbital station has no skyline to speak of, so it gets the one
         // thing that reads as distance in vacuum: something enormous, far off.
         if level.course == .cosmos {
-            root.addChild(makePlanet(theme: theme, bounds: bounds, rng: &rng))
+            let planet = makePlanet(theme: theme, bounds: bounds, rng: &rng)
+            SceneBuilder.castsNoShadow(planet)
+            root.addChild(planet)
         }
     }
 
@@ -700,9 +733,17 @@ enum Scenery {
         field.name = "weather"
         root.addChild(field)
 
+        // Weather is the one part of the scene that moves every single frame, so
+        // it is also the part that would cost most in the shadow pass — and a
+        // half-transparent speck a centimetre across throws nothing the shadow
+        // map can resolve. Set on the field, and again on each speck as it is
+        // added, since the component does not inherit.
+        SceneBuilder.castsNoShadow(field)
+
         for _ in 0..<recipe.count {
             let speck = ModelEntity(mesh: mesh, materials: [material])
             speck.scale = recipe.size
+            SceneBuilder.castsNoShadow(speck)
             // Each speck gets its own drift rate, or the whole field falls as
             // one sheet.
             let rate = rng.float(in: 0.75...1.3)

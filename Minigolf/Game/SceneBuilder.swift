@@ -818,13 +818,15 @@ enum SceneBuilder {
         /// band nearest the boards is what the player looks past all game, so
         /// it stays fine-grained, while the outer band has to hold its own
         /// against the hills behind it.
-        func plant(at point: SIMD2<Float>, scale: Float, spacing: Float) {
+        func plant(at point: SIMD2<Float>, scale: Float, spacing: Float,
+                   castsShadow: Bool = true) {
             if noGo.contains(where: { $0.contains(point) }) { return }
             if placed.contains(where: { simd_distance($0, point) < spacing }) { return }
             placed.append(point)
             let decor = makeDecoration(course: level.course, theme: theme, rng: &rng)
             decor.position = SIMD3(point.x, Scenery.groundY, point.y)
             decor.scale = SIMD3(repeating: scale)
+            if !castsShadow { castsNoShadow(decor) }
             root.addChild(decor)
         }
 
@@ -843,9 +845,14 @@ enum SceneBuilder {
             let slice = 2 * Float.pi / Float(outerCount)
             let angle = (Float(i) + rng.float(in: 0.1...0.9)) * slice
             let distance = rng.float(in: 2.8...7.0)
+            // The close band above keeps its shadows — that fringe sits right
+            // against the boards and is in shot on every frame. Out here the
+            // props stand three metres or more clear of the course, so their
+            // shadows fall on bare terrain behind the player's line of sight.
             plant(at: SIMD2(bounds.center.x + cos(angle) * (half.x + distance),
                             bounds.center.y + sin(angle) * (half.y + distance)),
-                  scale: rng.float(in: 1.3...2.1), spacing: 0.9)
+                  scale: rng.float(in: 1.3...2.1), spacing: 0.9,
+                  castsShadow: false)
         }
     }
 
@@ -1326,6 +1333,27 @@ enum SceneBuilder {
     }
 
     private static var materialCache: [MaterialKey: PhysicallyBasedMaterial] = [:]
+
+    /// Takes an entity and everything under it out of the sun's shadow pass.
+    ///
+    /// Every model in a hole is drawn twice: once for the camera, once into the
+    /// shadow map. A hole carries about two hundred of them and the great
+    /// majority is scenery whose shadow nobody can see — the sky, the slab the
+    /// course stands on, the hills on the skyline, the specks of weather in the
+    /// air. Each of those pays a full second draw for a shadow that lands
+    /// off-screen, underneath itself, or on something too far away to read.
+    ///
+    /// Dropping them from the pass is the cheapest frame in the game to buy:
+    /// the picture is identical and the renderer has a third fewer draws to
+    /// make. Anything whose shadow actually falls on the felt — the boards, the
+    /// obstacles, the characters, the ball, the fringe of props right against
+    /// the course — is deliberately left alone.
+    static func castsNoShadow(_ entity: Entity) {
+        entity.components.set(DynamicLightShadowComponent(castsShadow: false))
+        for child in entity.children {
+            castsNoShadow(child)
+        }
+    }
 
     private static func makeMaterial(_ color: UIColor, roughness: Float,
                                      metallic: Float) -> PhysicallyBasedMaterial {
