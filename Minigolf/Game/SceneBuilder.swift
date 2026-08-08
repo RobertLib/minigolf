@@ -262,6 +262,7 @@ struct ObstacleOutputs {
     var turntables: [Turntable] = []
     var magnets: [MagnetField] = []
     var windZones: [WindZone] = []
+    var critters: [Critter] = []
 }
 
 struct BuiltScene {
@@ -280,6 +281,8 @@ struct BuiltScene {
     var turntables: [Turntable]
     var magnets: [MagnetField]
     var windZones: [WindZone]
+    /// The world's characters, walked by the coordinator every frame.
+    var critters: [Critter]
     var bonusStar: BonusStar?
     /// Footprint of the whole course: every floor patch (hazard gaps included)
     /// plus the ramps that bridge them.
@@ -389,6 +392,7 @@ enum SceneBuilder {
             turntables: outputs.turntables,
             magnets: outputs.magnets,
             windZones: outputs.windZones,
+            critters: outputs.critters,
             bonusStar: bonusStar,
             floorRects: level.floors.map(\.rect) + rampFootprints(of: level),
             bumperNames: outputs.bumperNames,

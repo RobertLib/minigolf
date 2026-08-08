@@ -18,6 +18,12 @@ enum GardenCourse {
             tee: SIMD2(0, 0), hole: SIMD2(0, -2.2),
             floors: [floorRect(-0.45, 0.45, -2.7, 0.5)],
             wallLoops: [rectLoop(-0.45, 0.45, -2.7, 0.5)],
+            // A hedgehog pottering across the lane. Nothing else on this hole
+            // moves, so it is where the player learns that the locals are solid.
+            obstacles: [
+                critter(.hedgehog, at: SIMD2(0, -1.2),
+                        .patrol(axis: acrossLane, amplitude: 0.22), speed: 1.1),
+            ],
             bonusStar: SIMD2(0.32, -2.5)
         ),
         // 2 — staggered posts.
@@ -58,6 +64,11 @@ enum GardenCourse {
                 floorRect(-0.5, 0.15, -2.2, -1.4, kind: .sand),
             ],
             wallLoops: [rectLoop(-0.5, 0.5, -3.4, 0.5)],
+            // A mole works the clean side of the lane: the way round the sand is
+            // open only while he is down.
+            obstacles: [
+                critter(.mole, at: SIMD2(0.28, -2.45), .burrow(period: 2.6), phase: 0.4),
+            ],
             bonusStar: SIMD2(-0.34, -1.8)
         ),
         // 5 — speed bump plus guarding posts.
@@ -115,6 +126,12 @@ enum GardenCourse {
                 SIMD2(-0.8, -4.3), SIMD2(-1.7, -4.3), SIMD2(-1.7, -1.8),
                 SIMD2(-0.45, -1.8), SIMD2(-0.45, 0.5),
             ]],
+            // Patrolling the middle corridor, back and forth across the only way
+            // through to the last leg.
+            obstacles: [
+                critter(.hedgehog, at: SIMD2(-0.9, -2.25),
+                        .patrol(axis: acrossLane, amplitude: 0.4), speed: 0.9),
+            ],
             bonusStar: SIMD2(0.28, -2.5),
             cameraZoom: 1.3
         ),
@@ -130,6 +147,11 @@ enum GardenCourse {
                 floorRect(-0.5, 0.5, -3.6, -2.3),
             ],
             wallLoops: [rectLoop(-0.5, 0.5, -3.6, 0.5)],
+            // Waiting on the far bank: crossing the plank is only half of it.
+            obstacles: [
+                critter(.hedgehog, at: SIMD2(0, -2.75),
+                        .patrol(axis: acrossLane, amplitude: 0.3), speed: 1.3),
+            ],
             bonusStar: SIMD2(0.35, -3.35),
             cameraZoom: 1.1
         ),
@@ -182,6 +204,7 @@ enum GardenCourse {
                 .windmill(center: SIMD2(0, -1.9), yaw: 0, speed: 1.8),
                 .post(center: SIMD2(-0.7, -2.5), radius: 0.04),
                 .post(center: SIMD2(-1.0, -2.85), radius: 0.04),
+                critter(.mole, at: SIMD2(-0.25, -2.65), .burrow(period: 3.0)),
             ],
             bonusStar: SIMD2(-1.7, -2.45),
             cameraZoom: 1.25

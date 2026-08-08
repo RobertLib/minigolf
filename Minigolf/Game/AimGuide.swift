@@ -4,9 +4,9 @@
 //
 //  Predicts where a putt will go, purely from the level's static geometry.
 //  Only fixed blockers are considered — boards, blocks, posts, bumpers and
-//  tunnel walls. Windmills, gates, rotors and pendulums move, and a guide that
-//  claimed to know where they will be would be lying, so timing puzzles keep
-//  their teeth.
+//  tunnel walls. Windmills, gates, rotors, pendulums and the critters wandering
+//  the felt all move, and a guide that claimed to know where they will be would
+//  be lying, so timing puzzles keep their teeth.
 //
 
 import Foundation
@@ -94,7 +94,7 @@ struct AimGuideGeometry {
                         a: mid - alongZ * (length / 2), b: mid + alongZ * (length / 2),
                         halfThickness: 0.0275, baseY: y, height: 0.085))
                 }
-            case .windmill, .rotor, .movingBlock, .gate, .pendulum,
+            case .windmill, .rotor, .movingBlock, .gate, .pendulum, .critter,
                  .bump, .ramp, .slope, .conveyor, .teleporter, .boostPad,
                  .launchPad, .cannon, .turntable, .magnet, .fan:
                 continue

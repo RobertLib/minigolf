@@ -80,9 +80,25 @@ func contains(_ outer: GroundRect, _ inner: GroundRect) -> Bool {
 
 // MARK: - Obstacle introspection
 
+/// Everywhere a critter's rounds take it: the cup, the tee and the floor all
+/// have to be judged against the whole path, not just where it starts.
+func critterPoints(_ center: SIMD2<Float>, _ motion: CritterMotion) -> [SIMD2<Float>] {
+    switch motion {
+    case .patrol(let axis, let amplitude), .hop(let axis, let amplitude, _):
+        let unit = simd_length(axis) > 0 ? simd_normalize(axis) : SIMD2(1, 0)
+        return [center, center + unit * amplitude, center - unit * amplitude]
+    case .circle(let radius):
+        return [center, center + SIMD2(radius, 0), center - SIMD2(radius, 0),
+                center + SIMD2(0, radius), center - SIMD2(0, radius)]
+    case .burrow:
+        return [center]
+    }
+}
+
 /// Points an obstacle occupies that the ball must not find the cup underneath.
 func blockingPoints(_ spec: ObstacleSpec) -> [SIMD2<Float>] {
     switch spec {
+    case .critter(_, let c, let motion, _, _, _): return critterPoints(c, motion)
     case .windmill(let c, _, _): return [c]
     case .rotor(let c, _, _, _): return [c]
     case .movingBlock(let c, _, _, _, _, _): return [c]
@@ -143,6 +159,13 @@ func footprint(_ spec: ObstacleSpec) -> [SIMD2<Float>] {
     case .fan(let r, _, _, _, _, _):
         return [SIMD2(r.minX + 0.01, r.minZ + 0.01), SIMD2(r.maxX - 0.01, r.minZ + 0.01),
                 SIMD2(r.minX + 0.01, r.maxZ - 0.01), SIMD2(r.maxX - 0.01, r.maxZ - 0.01)]
+    case .critter(let kind, let c, let motion, _, _, _):
+        // A character has to keep both feet on the felt at every point of its
+        // round, so the check runs along the path and out to its own width.
+        return critterPoints(c, motion).flatMap { p in
+            [p, p + SIMD2(kind.radius, 0), p - SIMD2(kind.radius, 0),
+             p + SIMD2(0, kind.radius), p - SIMD2(0, kind.radius)]
+        }
     }
 }
 
@@ -162,7 +185,8 @@ func obstacleY(_ spec: ObstacleSpec) -> Float {
          .pendulum(_, _, _, _, _, let y), .boostPad(_, _, _, let y),
          .loop(_, _, _, _, let y), .launchPad(_, _, _, _, let y),
          .cannon(_, _, _, let y), .turntable(_, _, _, let y),
-         .magnet(_, _, _, let y), .fan(_, _, _, _, _, let y):
+         .magnet(_, _, _, let y), .fan(_, _, _, _, _, let y),
+         .critter(_, _, _, _, _, let y):
         return y
     default:
         return 0
@@ -192,6 +216,7 @@ func obstacleName(_ spec: ObstacleSpec) -> String {
     case .turntable: return "turntable"
     case .magnet: return "magnet"
     case .fan: return "fan"
+    case .critter(let kind, _, _, _, _, _): return "critter (\(kind))"
     }
 }
 

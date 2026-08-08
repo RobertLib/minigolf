@@ -18,7 +18,12 @@ enum ClockworkCourse {
             tee: SIMD2(0, 0), hole: SIMD2(0, -2.45),
             floors: [floorRect(-0.5, 0.5, -2.9, 0.5)],
             wallLoops: [rectLoop(-0.5, 0.5, -2.9, 0.5)],
-            obstacles: [.turntable(center: SIMD2(0, -1.35), radius: 0.26, speed: 1.2, y: 0)],
+            obstacles: [
+                .turntable(center: SIMD2(0, -1.35), radius: 0.26, speed: 1.2, y: 0),
+                // A wind-up tin man marching across the run-out.
+                critter(.windupBot, at: SIMD2(0, -2.05),
+                        .patrol(axis: acrossLane, amplitude: 0.25), speed: 1.1),
+            ],
             bonusStar: SIMD2(0.34, -2.68)
         ),
         // 2 — a curved brass bank carries the ball around the corner.
@@ -53,6 +58,9 @@ enum ClockworkCourse {
                              speed: 1.5, size: SIMD2(0.34, 0.12), baseY: 0),
                 .gate(center: SIMD2(0, -2.4), size: SIMD2(0.5, 0.09), yaw: 0,
                       period: 2.4, phase: 0.6, baseY: 0),
+                // A cuckoo popping out of a hatch beside the cup, on its own
+                // beat — nothing else on this hole keeps that time.
+                critter(.cuckoo, at: SIMD2(-0.3, -3.2), .burrow(period: 3.4)),
             ],
             bonusStar: SIMD2(0.34, -3.2)
         ),
@@ -99,6 +107,7 @@ enum ClockworkCourse {
                 .turntable(center: SIMD2(0.36, -2.5), radius: 0.35, speed: -1.8, y: 0),
                 .post(center: SIMD2(-0.3, -3.2), radius: 0.04),
                 .post(center: SIMD2(0.3, -3.2), radius: 0.04),
+                critter(.cuckoo, at: SIMD2(0.3, -1.95), .burrow(period: 3.0), phase: 0.8),
             ],
             bonusStar: SIMD2(0.6, -3.85),
             cameraZoom: 1.25
@@ -155,6 +164,9 @@ enum ClockworkCourse {
             obstacles: [
                 .gate(center: SIMD2(0, -1.1), size: SIMD2(0.56, 0.09), yaw: 0,
                       period: 2.4, phase: 0, baseY: 0),
+                // Marching the approach between the gate and the ramp.
+                critter(.windupBot, at: SIMD2(0, -1.6),
+                        .patrol(axis: acrossLane, amplitude: 0.2), speed: 1.3),
                 .ramp(center: SIMD2(0, -2.25), width: 0.9, length: 0.7, rise: 0.13, yaw: 0),
                 .movingBlock(center: SIMD2(0, -3.15), axis: SIMD2(1, 0), amplitude: 0.24,
                              speed: 1.7, size: SIMD2(0.3, 0.12), baseY: 0.13),
@@ -223,6 +235,7 @@ enum ClockworkCourse {
                       period: 2.0, phase: 0, baseY: 0),
                 .turntable(center: SIMD2(0, -2.5), radius: 0.5, speed: 1.5, y: 0),
                 .cannon(center: SIMD2(-0.85, -2.2), direction: SIMD2(1, -0.5), speed: 2.8, y: 0),
+                critter(.cuckoo, at: SIMD2(0.85, -2.9), .burrow(period: 2.8)),
                 .ramp(center: SIMD2(0, -3.55), width: 1.0, length: 0.7, rise: 0.14, yaw: 0),
                 .movingBlock(center: SIMD2(0, -4.2), axis: SIMD2(1, 0), amplitude: 0.22,
                              speed: 1.8, size: SIMD2(0.28, 0.12), baseY: 0.14),

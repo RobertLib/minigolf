@@ -19,6 +19,9 @@ enum NeonCourse {
             floors: [floorRect(-0.45, 0.45, -3.0, 0.5)],
             wallLoops: [rectLoop(-0.45, 0.45, -3.0, 0.5)],
             obstacles: [
+                // A patrol drone flying its circuit over the lane. The beam under
+                // it is what stops the ball, so it is drawn down to the felt.
+                critter(.drone, at: SIMD2(0, -0.9), .circle(radius: 0.22), speed: 1.4),
                 .bumper(center: SIMD2(-0.2, -1.5), radius: 0.06),
                 .bumper(center: SIMD2(0.25, -2.0), radius: 0.06),
             ],
@@ -55,6 +58,8 @@ enum NeonCourse {
                 .bumper(center: SIMD2(-0.5, -1.9), radius: 0.07),
                 .bumper(center: SIMD2(0.5, -1.9), radius: 0.07),
                 .bumper(center: SIMD2(0, -2.5), radius: 0.08),
+                // Circling the middle of the arena, between all four bumpers.
+                critter(.drone, at: SIMD2(0, -1.9), .circle(radius: 0.25), speed: 1.6),
             ],
             bonusStar: SIMD2(-0.82, -3.35),
             cameraZoom: 1.25
@@ -87,6 +92,12 @@ enum NeonCourse {
                 SIMD2(-0.9, -3.8), SIMD2(-1.5, -3.8), SIMD2(-1.5, -1.6),
                 SIMD2(-0.3, -1.6), SIMD2(-0.3, 0.5),
             ]],
+            // A sentry pacing the last trace, in a corridor too narrow to pass
+            // it on the wrong beat.
+            obstacles: [
+                critter(.sentry, at: SIMD2(-1.2, -2.85),
+                        .patrol(axis: alongLane, amplitude: 0.2), speed: 1.0),
+            ],
             bonusStar: SIMD2(0.12, -1.9),
             cameraZoom: 1.25
         ),
@@ -173,6 +184,7 @@ enum NeonCourse {
                 rectLoop(0.8, 1.7, -3.8, -1.1),
             ],
             obstacles: [
+                critter(.drone, at: SIMD2(0, -0.75), .circle(radius: 0.2), speed: 1.5),
                 .teleporter(a: SIMD2(0, -1.85), b: SIMD2(1.25, -1.5), radius: 0.1, y: 0),
                 .bumper(center: SIMD2(-0.28, -1.15), radius: 0.05),
                 .bumper(center: SIMD2(0.28, -1.45), radius: 0.05),
@@ -225,6 +237,9 @@ enum NeonCourse {
             obstacles: [
                 .windmill(center: SIMD2(0, -1.1), yaw: 0, speed: 2.2),
                 .rotor(center: SIMD2(0, -2.4), length: 1.1, speed: 1.6, baseY: 0),
+                // Just outside the rotor's sweep, guarding the one gap it leaves.
+                critter(.sentry, at: SIMD2(0.7, -2.85),
+                        .patrol(axis: alongLane, amplitude: 0.1), speed: 1.2),
                 .ramp(center: SIMD2(0, -3.35), width: 0.9, length: 0.7, rise: 0.13, yaw: 0),
                 .movingBlock(center: SIMD2(0, -4.1), axis: SIMD2(1, 0), amplitude: 0.25,
                              speed: 1.8, size: SIMD2(0.3, 0.12), baseY: 0.13),

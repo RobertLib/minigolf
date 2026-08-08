@@ -22,6 +22,15 @@ zvuky jsou syntetizované WAVy přibalené v bundlu.
   pokročilá sada: **looping**, **skokánek** (balistický skok přes propast),
   **dělo**, **otočný talíř**, **magnet / repulzor** a **pulzující větrák**.
   Mantinely se dají zakřivit (`arcWall`) do oblouků a bank.
+- **Obyvatelé světů** — každý svět má dvojici postaviček, které si po greenu chodí
+  po svém: ježek a krtek, stepní křoví a surikata, žába a želva, **sněhulák** a
+  tučňák, dron a strážní věž, skřítek a magmová kaňka, natahovací robot a kukačka,
+  krab a racek, mimozemšťan a rover. Nejsou to kulisy — mají kinematické tělo,
+  takže se od nich míček odráží, pohybující se postavička šťouchne i do stojícího
+  míčku a zásah je rozhoupe. Chodí sem a tam, krouží, skáčou (pod skákající se dá
+  proputovat) nebo se vynořují z díry v trávníku. Dráha je funkcí herních hodin,
+  takže načasovaná rána vyjde stejně i podruhé — a naváděcí čára je, stejně jako
+  u mlýnů a bran, záměrně ignoruje.
 - **Povrchy:** tráva, písek, **bahno/popel** (extrémní tlumení), **led** (téměř bez
   odporu), **voda** i **láva** jako trestné jamky.
 - **Bonusová hvězda na každé jamce** — schovaná mimo hlavní linii, sbírá se
@@ -74,6 +83,7 @@ Minigolf/
 │   │                               povrchy, silová pole, portály, loopingy, děla
 │   ├── SceneBuilder.swift       stavba RealityKit scény z definice levelu
 │   ├── Obstacles.swift          stavitelé překážek + animace kinematiky
+│   ├── Critters.swift           postavičky světů: modely + chůze po greenu
 │   ├── AimGuide.swift           předpověď dráhy putu ze statické geometrie
 │   ├── AimGuideRenderer.swift   tečkovaná čára + značka dopadu
 │   ├── BallTrail.swift          mizející stopa za míčkem

@@ -40,6 +40,10 @@ enum VolcanoCourse {
             obstacles: [
                 .post(center: SIMD2(0.28, -1.8), radius: 0.045),
                 .post(center: SIMD2(-0.2, -2.7), radius: 0.045),
+                // A blob of magma oozing across the ash. Slow, soft and squarely
+                // in the way of the tidy line down the left.
+                critter(.magmaBlob, at: SIMD2(-0.3, -2.3),
+                        .patrol(axis: acrossLane, amplitude: 0.15), speed: 0.6),
             ],
             bonusStar: SIMD2(-0.4, -1.9)
         ),
@@ -91,6 +95,9 @@ enum VolcanoCourse {
                       period: 2.0, phase: .pi, baseY: 0),
                 .gate(center: SIMD2(-0.3, -3.2), size: SIMD2(0.6, 0.09), yaw: 0,
                       period: 2.0, phase: 0, baseY: 0),
+                // An ember imp bouncing across the run-out past the last piston.
+                critter(.imp, at: SIMD2(0, -3.65),
+                        .hop(axis: acrossLane, amplitude: 0.25, height: 0.11), speed: 1.5),
             ],
             bonusStar: SIMD2(0.45, -3.6),
             cameraZoom: 1.4
@@ -127,6 +134,9 @@ enum VolcanoCourse {
                 .boostPad(center: SIMD2(0, -1.0), direction: SIMD2(0, -1), boost: 1.0, y: 0),
                 .pendulum(center: SIMD2(0, -2.0), span: 0.5, arc: 0.6, speed: 1.6,
                           yaw: 0, baseY: 0),
+                // Wallowing in the ash on the right, where the safe line runs.
+                critter(.magmaBlob, at: SIMD2(0.4, -2.95),
+                        .patrol(axis: acrossLane, amplitude: 0.25), speed: 0.55),
             ],
             bonusStar: SIMD2(-0.7, -1.5),
             cameraZoom: 1.4
@@ -168,6 +178,10 @@ enum VolcanoCourse {
                 .boostPad(center: SIMD2(-0.6, -1.8), direction: SIMD2(0, -1), boost: 1.0, y: 0),
                 .boostPad(center: SIMD2(0.6, -1.8), direction: SIMD2(0, -1), boost: 1.0, y: 0),
                 .post(center: SIMD2(0.6, -3.0), radius: 0.04),
+                // Hopping up and down the right-hand lane: the two sides of this
+                // hole are no longer the same bet.
+                critter(.imp, at: SIMD2(0.6, -2.55),
+                        .hop(axis: alongLane, amplitude: 0.25, height: 0.1), speed: 1.3),
             ],
             bonusStar: SIMD2(-0.75, -3.5),
             cameraZoom: 1.4
@@ -245,6 +259,8 @@ enum VolcanoCourse {
             obstacles: [
                 .pendulum(center: SIMD2(0, -2.6), span: 0.7, arc: 0.6, speed: 1.8,
                           yaw: 0, baseY: 0),
+                critter(.magmaBlob, at: SIMD2(0.55, -3.05),
+                        .patrol(axis: alongLane, amplitude: 0.15), speed: 0.5),
                 .ramp(center: SIMD2(0, -3.65), width: 0.9, length: 0.5, rise: 0.16, yaw: 0),
                 .movingBlock(center: SIMD2(0, -4.4), axis: SIMD2(1, 0), amplitude: 0.16,
                              speed: 1.8, size: SIMD2(0.28, 0.12), baseY: 0.16),

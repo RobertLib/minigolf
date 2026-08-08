@@ -49,6 +49,52 @@ struct WallSegment {
     var thickness: Float = 0.055
 }
 
+/// The cast of characters that live on the holes — two per world. They are
+/// scenery with teeth: solid enough that a putt banks off them, and never still,
+/// so where one will be by the time the ball arrives is part of the shot.
+enum CritterKind {
+    case hedgehog, mole          // Green Garden
+    case tumbleweed, meerkat     // Desert Oasis
+    case frog, turtle            // Jungle Temple
+    case snowman, penguin        // Frozen Fjord
+    case drone, sentry           // Neon Nights
+    case imp, magmaBlob          // Volcano Forge
+    case windupBot, cuckoo       // Clockwork Works
+    case crab, seagull           // Storm Coast
+    case alien, rover            // Orbital Station
+}
+
+extension CritterKind {
+    /// How far the character reaches out across the felt: the radius of the
+    /// collider the ball meets, and the only bit of its geometry the level
+    /// checker and the scene builder both have to agree on.
+    var radius: Float {
+        switch self {
+        case .snowman, .tumbleweed, .turtle, .rover: return 0.08
+        case .crab, .magmaBlob, .windupBot: return 0.07
+        case .mole, .meerkat, .cuckoo: return 0.05
+        case .hedgehog, .penguin, .frog, .drone, .sentry, .imp, .seagull, .alien: return 0.06
+        }
+    }
+}
+
+/// How a critter gets about. Whatever it does it stays on its own patch of
+/// felt: the point is that the player can watch it for a moment and then time
+/// the putt, not that it chases the ball around.
+enum CritterMotion {
+    /// Walks back and forth along `axis`, `amplitude` metres either side of its
+    /// centre, turning round at each end.
+    case patrol(axis: SIMD2<Float>, amplitude: Float)
+    /// Walks a circle of `radius` around its centre.
+    case circle(radius: Float)
+    /// Sits, then leaps to the other end of `axis` and sits again. The ball can
+    /// be threaded underneath one in mid-air.
+    case hop(axis: SIMD2<Float>, amplitude: Float, height: Float)
+    /// Pops up out of the felt and sinks back down on a `period`-second cycle,
+    /// well clear of the ball while it is under.
+    case burrow(period: Float)
+}
+
 /// Interactive/physical obstacles placed on the course.
 enum ObstacleSpec {
     /// Classic mill with rotating blades over a narrow gate. `yaw` in radians.
@@ -117,6 +163,12 @@ enum ObstacleSpec {
     /// zone as a belt, except the blades tell the player when it is blowing.
     case fan(rect: GroundRect, direction: SIMD2<Float>, strength: Float,
              period: Float, phase: Float, y: Float)
+    /// One of the world's characters, going about its business on the felt. It
+    /// is a solid kinematic body like a sliding block — a moving one shunts a
+    /// ball at rest, and a ball that runs into one banks off and knocks it over
+    /// sideways. `speed` is in radians per second of its cycle.
+    case critter(kind: CritterKind, center: SIMD2<Float>, motion: CritterMotion,
+                 speed: Float, phase: Float, baseY: Float)
 }
 
 /// Complete definition of one hole.
@@ -170,6 +222,19 @@ func floorRect(_ x0: Float, _ x1: Float, _ z0: Float, _ z1: Float,
 func zone(_ x0: Float, _ x1: Float, _ z0: Float, _ z1: Float) -> GroundRect {
     GroundRect(x0: x0, x1: x1, z0: z0, z1: z1)
 }
+
+/// A character on its rounds. Only the kind, the spot and the path are worth
+/// spelling out in a hole — the rest of the dial settings have sane defaults,
+/// which enum cases cannot carry.
+func critter(_ kind: CritterKind, at center: SIMD2<Float>, _ motion: CritterMotion,
+             speed: Float = 1.0, phase: Float = 0, baseY: Float = 0) -> ObstacleSpec {
+    .critter(kind: kind, center: center, motion: motion, speed: speed,
+             phase: phase, baseY: baseY)
+}
+
+/// Straight line for a patrol, in the two directions holes are laid out on.
+let acrossLane = SIMD2<Float>(1, 0)
+let alongLane = SIMD2<Float>(0, 1)
 
 // MARK: - Loop geometry
 

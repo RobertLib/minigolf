@@ -302,6 +302,9 @@ final class GameSceneCoordinator {
         for obstacle in built.animated {
             obstacle.update(time: elapsed)
         }
+        for critter in built.critters {
+            critter.update(time: elapsed, dt: dt)
+        }
 
         let ball = built.ball
         let travelled = ball.position - lastBallPosition
@@ -1498,11 +1501,20 @@ final class GameSceneCoordinator {
         let ball = built.ball
         let other = event.entityA == ball ? event.entityB : event.entityA
         let isBumper = built.bumperNames.contains(other.name)
+        let critter = other.name == "critter" ? built.critters.first { $0.body === other } : nil
 
-        rebound(ball: ball, event: event,
-                restitution: isBumper ? GamePhysics.bumperBounce : GamePhysics.wallBounce)
+        let restitution = isBumper ? GamePhysics.bumperBounce
+                                   : (critter?.kind.restitution ?? GamePhysics.wallBounce)
+        rebound(ball: ball, event: event, restitution: restitution)
 
-        if isBumper {
+        if let critter {
+            // The character is knocked the way the ball was going, so it rocks
+            // away from the putt rather than into it.
+            critter.hit(direction: critter.root.position(relativeTo: nil) - ball.position)
+            let force = min(1, Float(event.impulse) * 55)
+            SoundManager.shared.play(.bumper, volume: 0.3 + 0.45 * force)
+            if force > 0.3 { throttledHaptic { Haptics.shared.impact(intensity: 0.45) } }
+        } else if isBumper {
             var direction = ball.position - other.position(relativeTo: nil)
             direction.y = 0
             if simd_length(direction) > 0.001 {

@@ -171,6 +171,11 @@ enum ObstacleBuilder {
         case .fan(let rect, let direction, let strength, let period, let phase, let y):
             buildFan(rect: rect, direction: direction, strength: strength, period: period,
                      phase: phase, y: y, materials: materials, into: root, outputs: &outputs)
+        case .critter(let kind, let center, let motion, let speed, let phase, let baseY):
+            CritterBuilder.build(kind: kind, center: center, motion: motion, speed: speed,
+                                 phase: phase, baseY: baseY, theme: theme,
+                                 materials: materials, into: root,
+                                 critters: &outputs.critters)
         }
     }
 

@@ -19,6 +19,9 @@ enum StormCourse {
             floors: [floorRect(-0.55, 0.55, -2.9, 0.5)],
             wallLoops: [rectLoop(-0.55, 0.55, -2.9, 0.5)],
             obstacles: [
+                // A crab scuttling along the strand line, sideways as crabs do.
+                critter(.crab, at: SIMD2(0, -0.8),
+                        .patrol(axis: acrossLane, amplitude: 0.3), speed: 1.2),
                 .fan(rect: zone(-0.55, 0.55, -2.2, -1.2), direction: SIMD2(1, 0),
                      strength: 0.8, period: 3.6, phase: 0, y: 0),
             ],
@@ -71,6 +74,10 @@ enum StormCourse {
                      strength: 1.4, period: 3.2, phase: 0, y: 0),
                 .post(center: SIMD2(0.25, -1.0), radius: 0.045),
                 .post(center: SIMD2(-0.3, -2.9), radius: 0.045),
+                // A gull hopping up the windward side, on the line the gust
+                // pushes everything toward.
+                critter(.seagull, at: SIMD2(-0.35, -1.7),
+                        .hop(axis: alongLane, amplitude: 0.25, height: 0.1), speed: 1.0),
             ],
             bonusStar: SIMD2(-0.55, -3.25),
             cameraZoom: 1.2
@@ -86,6 +93,8 @@ enum StormCourse {
             obstacles: [
                 .bumper(center: SIMD2(-0.55, -1.4), radius: 0.07),
                 .bumper(center: SIMD2(-0.2, -2.6), radius: 0.06),
+                critter(.crab, at: SIMD2(-0.6, -2.05),
+                        .patrol(axis: alongLane, amplitude: 0.2), speed: 1.0),
             ],
             bonusStar: SIMD2(-0.85, -3.2),
             cameraZoom: 1.3
@@ -138,6 +147,9 @@ enum StormCourse {
             obstacles: [
                 .fan(rect: zone(-0.6, 0.6, -1.4, -0.6), direction: SIMD2(-1, 0),
                      strength: 1.3, period: 2.8, phase: 0, y: 0),
+                // Picking its way through the kelp, where the ball is slowest.
+                critter(.crab, at: SIMD2(-0.25, -1.9),
+                        .patrol(axis: acrossLane, amplitude: 0.25), speed: 0.9),
             ],
             bonusStar: SIMD2(-0.45, -3.25),
             cameraZoom: 1.15
@@ -232,6 +244,9 @@ enum StormCourse {
                            lift: 1.7, y: 0),
                 .pendulum(center: SIMD2(0.55, -2.75), span: 0.55, arc: 0.75, speed: 1.7,
                           yaw: .pi / 2, baseY: 0),
+                // On the landing shelf, outside the swing of the buoy.
+                critter(.crab, at: SIMD2(-0.2, -2.85),
+                        .patrol(axis: acrossLane, amplitude: 0.25), speed: 1.1),
                 .ramp(center: SIMD2(1.3, -3.65), width: 0.6, length: 0.7, rise: 0.14, yaw: 0),
             ],
             bonusStar: SIMD2(-0.45, -3.05),

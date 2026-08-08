@@ -22,6 +22,12 @@ enum IceCourse {
                 floorRect(-0.5, 0.5, -1.8, -1.0, kind: .ice),
             ],
             wallLoops: [rectLoop(-0.5, 0.5, -3.0, 0.5)],
+            // A snowman sliding about on the frozen strip. He is soft, so a putt
+            // that clips him is nudged off line rather than sent back.
+            obstacles: [
+                critter(.snowman, at: SIMD2(0, -1.4),
+                        .patrol(axis: acrossLane, amplitude: 0.25), speed: 1.2),
+            ],
             bonusStar: SIMD2(0.36, -2.8)
         ),
         // 2 — posts on a frozen lane: no braking, only aiming.
@@ -34,6 +40,9 @@ enum IceCourse {
             ],
             wallLoops: [rectLoop(-0.55, 0.55, -3.4, 0.5)],
             obstacles: [
+                // Waddling across in front of the slalom, before the ice starts.
+                critter(.penguin, at: SIMD2(0, -0.75),
+                        .patrol(axis: acrossLane, amplitude: 0.3), speed: 1.0),
                 .post(center: SIMD2(-0.2, -1.5), radius: 0.045),
                 .post(center: SIMD2(0.22, -2.1), radius: 0.045),
                 .post(center: SIMD2(-0.2, -2.5), radius: 0.045),
@@ -86,6 +95,9 @@ enum IceCourse {
             obstacles: [
                 .slope(rect: zone(-0.7, 0.7, -2.6, -1.2), direction: SIMD2(-1, 0),
                        strength: 0.9, y: 0),
+                // Sliding along the banked shelf, across the drift.
+                critter(.snowman, at: SIMD2(0, -1.9),
+                        .patrol(axis: acrossLane, amplitude: 0.35), speed: 1.0),
             ],
             bonusStar: SIMD2(-0.55, -2.9),
             cameraZoom: 1.25
@@ -118,7 +130,12 @@ enum IceCourse {
                 floorRect(0.0, 0.5, -2.3, -1.5, kind: .ice),
             ],
             wallLoops: [rectLoop(-0.5, 0.5, -3.4, 0.5)],
-            obstacles: [.bump(center: SIMD2(0, -1.1), width: 1.0, height: 0.035, yaw: 0)],
+            obstacles: [
+                .bump(center: SIMD2(0, -1.1), width: 1.0, height: 0.035, yaw: 0),
+                // Pacing the run-out on the fast side, guarding the cup.
+                critter(.penguin, at: SIMD2(0.3, -2.65),
+                        .patrol(axis: alongLane, amplitude: 0.2), speed: 1.1),
+            ],
             bonusStar: SIMD2(-0.38, -1.9)
         ),
         // 8 — up the glacier ramp onto a frozen shelf.
@@ -160,6 +177,12 @@ enum IceCourse {
                 floorRect(-0.7, 0.7, -4.2, -3.3),
             ],
             wallLoops: [rectLoop(-0.7, 0.7, -4.2, 0.5)],
+            // The landing floe is already the only safe ground between the two
+            // planks; a penguin patrolling it makes the stop worth aiming.
+            obstacles: [
+                critter(.penguin, at: SIMD2(0, -2.25),
+                        .patrol(axis: acrossLane, amplitude: 0.35), speed: 1.3),
+            ],
             bonusStar: SIMD2(0.55, -2.25),
             cameraZoom: 1.4
         ),
@@ -234,6 +257,8 @@ enum IceCourse {
                 // the last few centimetres before the ramp mouth.
                 .slope(rect: zone(-1.0, 1.0, -2.6, -2.0), direction: SIMD2(-1, 0),
                        strength: 0.8, y: 0),
+                critter(.snowman, at: SIMD2(-0.75, -1.75),
+                        .patrol(axis: acrossLane, amplitude: 0.15), speed: 0.9),
                 .ramp(center: SIMD2(0, -3.3), width: 0.9, length: 0.6, rise: 0.13, yaw: 0),
                 .movingBlock(center: SIMD2(0, -4.2), axis: SIMD2(1, 0), amplitude: 0.16,
                              speed: 1.7, size: SIMD2(0.28, 0.12), baseY: 0.13),

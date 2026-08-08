@@ -22,6 +22,10 @@ enum DesertCourse {
                 floorRect(0.15, 0.5, -2.6, -1.9, kind: .sand),
             ],
             wallLoops: [rectLoop(-0.5, 0.5, -3.0, 0.5)],
+            // A meerkat keeping watch from the near sand pocket.
+            obstacles: [
+                critter(.meerkat, at: SIMD2(-0.33, -1.45), .burrow(period: 3.2)),
+            ],
             bonusStar: SIMD2(0.35, -2.3)
         ),
         // 2 — dogleg left between the rocks.
@@ -101,6 +105,9 @@ enum DesertCourse {
             obstacles: [
                 .bump(center: SIMD2(0, -1.2), width: 0.9, height: 0.04, yaw: 0),
                 .bump(center: SIMD2(0, -2.2), width: 0.9, height: 0.04, yaw: 0),
+                // Blowing across the trough between the two dunes.
+                critter(.tumbleweed, at: SIMD2(0, -1.7),
+                        .patrol(axis: acrossLane, amplitude: 0.3), speed: 1.3),
             ],
             bonusStar: SIMD2(0.31, -3.6),
             cameraZoom: 1.15
@@ -133,7 +140,12 @@ enum DesertCourse {
                 wall(0.45, -3.0, 0.45, -2.3, height: 0.26),
                 wall(0.45, -2.3, 0.45, 0.5),
             ],
-            obstacles: [.ramp(center: SIMD2(0, -2.65), width: 0.9, length: 0.7, rise: 0.13, yaw: 0)],
+            obstacles: [
+                .ramp(center: SIMD2(0, -2.65), width: 0.9, length: 0.7, rise: 0.13, yaw: 0),
+                // Standing sentry on the mesa, right where the plateau turns.
+                critter(.meerkat, at: SIMD2(0.5, -3.35), .burrow(period: 2.8),
+                        phase: .pi / 2, baseY: 0.13),
+            ],
             bonusStar: SIMD2(1.42, -3.5), bonusStarY: 0.13,
             cameraZoom: 1.25
         ),
@@ -184,6 +196,8 @@ enum DesertCourse {
             ],
             wallLoops: [rectLoop(-0.5, 0.5, -4.6, 0.5)],
             obstacles: [
+                critter(.tumbleweed, at: SIMD2(0, -1.05),
+                        .patrol(axis: acrossLane, amplitude: 0.3), speed: 1.6),
                 .boostPad(center: SIMD2(0, -1.5), direction: SIMD2(0, -1), boost: 1.1, y: 0),
                 .boostPad(center: SIMD2(0, -3.2), direction: SIMD2(0, -1), boost: 0.9, y: 0),
                 .post(center: SIMD2(-0.24, -3.7), radius: 0.04),
@@ -207,6 +221,8 @@ enum DesertCourse {
                 .bump(center: SIMD2(0, -3.0), width: 1.0, height: 0.035, yaw: 0),
                 .movingBlock(center: SIMD2(0, -3.7), axis: SIMD2(1, 0), amplitude: 0.28,
                              speed: 1.9, size: SIMD2(0.35, 0.12), baseY: 0),
+                // Last word on the hole: a meerkat popping up beside the cup.
+                critter(.meerkat, at: SIMD2(-0.3, -4.4), .burrow(period: 2.4)),
             ],
             bonusStar: SIMD2(0.36, -4.4),
             cameraZoom: 1.3

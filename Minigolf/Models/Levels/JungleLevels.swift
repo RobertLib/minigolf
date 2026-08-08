@@ -18,7 +18,13 @@ enum JungleCourse {
             tee: SIMD2(0, 0), hole: SIMD2(0, -2.4),
             floors: [floorRect(-0.45, 0.45, -2.8, 0.5)],
             wallLoops: [rectLoop(-0.45, 0.45, -2.8, 0.5)],
-            obstacles: [.post(center: SIMD2(-0.15, -1.4), radius: 0.04)],
+            obstacles: [
+                .post(center: SIMD2(-0.15, -1.4), radius: 0.04),
+                // A tree frog crossing the steps. It is off the ground for half
+                // of every hop, so a quick putt can be threaded underneath it.
+                critter(.frog, at: SIMD2(0, -1.95),
+                        .hop(axis: acrossLane, amplitude: 0.25, height: 0.09), speed: 1.4),
+            ],
             bonusStar: SIMD2(0.32, -2.6)
         ),
         // 2 — mud on both flanks: only the middle strip is quick.
@@ -34,6 +40,9 @@ enum JungleCourse {
             obstacles: [
                 .post(center: SIMD2(-0.18, -2.5), radius: 0.04),
                 .post(center: SIMD2(0.2, -2.6), radius: 0.04),
+                // Plodding up and down the right-hand mud bank, in no hurry.
+                critter(.turtle, at: SIMD2(0.28, -1.55),
+                        .patrol(axis: alongLane, amplitude: 0.25), speed: 0.55),
             ],
             bonusStar: SIMD2(-0.4, -1.7)
         ),
@@ -111,6 +120,10 @@ enum JungleCourse {
             obstacles: [
                 .pendulum(center: SIMD2(0, -3.0), span: 0.34, arc: 0.5, speed: 1.7,
                           yaw: 0, baseY: 0),
+                // Sits in front of the plank, so the crossing has to be timed
+                // twice: once for the frog, once for the vine.
+                critter(.frog, at: SIMD2(0, -0.9),
+                        .hop(axis: acrossLane, amplitude: 0.28, height: 0.1), speed: 1.2),
             ],
             bonusStar: SIMD2(-0.45, -2.7),
             cameraZoom: 1.3
@@ -169,6 +182,9 @@ enum JungleCourse {
                 .rotor(center: SIMD2(0, -1.6), length: 0.9, speed: 1.4, baseY: 0),
                 .pendulum(center: SIMD2(0, -2.9), span: 0.4, arc: 0.5, speed: 1.8,
                           yaw: 0, baseY: 0),
+                // Wallowing in the mud bank between the vine and the cup.
+                critter(.turtle, at: SIMD2(-0.2, -3.4),
+                        .patrol(axis: acrossLane, amplitude: 0.2), speed: 0.5),
             ],
             bonusStar: SIMD2(-0.6, -3.4),
             cameraZoom: 1.4
@@ -218,6 +234,10 @@ enum JungleCourse {
             obstacles: [
                 .pendulum(center: SIMD2(0, -2.35), span: 0.8, arc: 0.6, speed: 1.7,
                           yaw: 0, baseY: 0),
+                // Hopping down the right-hand side of the court, clear of the
+                // vine's swing — the safe way round is not empty either.
+                critter(.frog, at: SIMD2(0.7, -2.4),
+                        .hop(axis: alongLane, amplitude: 0.25, height: 0.09), speed: 1.1),
                 .ramp(center: SIMD2(0, -3.45), width: 0.9, length: 0.5, rise: 0.13, yaw: 0),
                 .movingBlock(center: SIMD2(0, -4.3), axis: SIMD2(1, 0), amplitude: 0.16,
                              speed: 1.6, size: SIMD2(0.28, 0.12), baseY: 0.13),

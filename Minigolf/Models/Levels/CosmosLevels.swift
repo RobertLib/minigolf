@@ -20,6 +20,9 @@ enum CosmosCourse {
             wallLoops: [rectLoop(-0.5, 0.5, -3.2, 0.5)],
             obstacles: [
                 .boostPad(center: SIMD2(0, -1.4), direction: SIMD2(0, -1), boost: 0.9, y: 0),
+                // A service rover crossing the bay on its rounds.
+                critter(.rover, at: SIMD2(0, -2.1),
+                        .patrol(axis: acrossLane, amplitude: 0.22), speed: 0.8),
             ],
             bonusStar: SIMD2(0.34, -2.95)
         ),
@@ -47,7 +50,12 @@ enum CosmosCourse {
             tee: SIMD2(0, 0), hole: SIMD2(0.5, -2.95),
             floors: [floorRect(-0.8, 0.8, -3.4, 0.5)],
             wallLoops: [rectLoop(-0.8, 0.8, -3.4, 0.5)],
-            obstacles: [.magnet(center: SIMD2(0, -1.8), radius: 0.55, strength: 2.2, y: 0)],
+            obstacles: [
+                .magnet(center: SIMD2(0, -1.8), radius: 0.55, strength: 2.2, y: 0),
+                // A little green passenger drifting about outside the beam.
+                critter(.alien, at: SIMD2(0, -0.85),
+                        .patrol(axis: acrossLane, amplitude: 0.3), speed: 0.9),
+            ],
             bonusStar: SIMD2(-0.62, -3.15),
             cameraZoom: 1.2
         ),
@@ -78,6 +86,8 @@ enum CosmosCourse {
             obstacles: [
                 .magnet(center: SIMD2(-0.38, -1.6), radius: 0.45, strength: -2.4, y: 0),
                 .magnet(center: SIMD2(0.38, -2.5), radius: 0.45, strength: -2.4, y: 0),
+                critter(.alien, at: SIMD2(0, -2.9),
+                        .patrol(axis: acrossLane, amplitude: 0.3), speed: 1.1),
             ],
             bonusStar: SIMD2(0.72, -1.4),
             cameraZoom: 1.25
@@ -193,6 +203,9 @@ enum CosmosCourse {
                 .loop(center: SIMD2(0.92, -2.6), radius: 0.19, width: 0.17, yaw: 0, y: 0),
                 .gate(center: SIMD2(-0.92, -2.6), size: SIMD2(0.72, 0.09), yaw: 0,
                       period: 2.2, phase: 0, baseY: 0),
+                // Working the gated deck: past the hatch is not past everything.
+                critter(.rover, at: SIMD2(-0.92, -3.2),
+                        .patrol(axis: acrossLane, amplitude: 0.2), speed: 0.9),
             ],
             bonusStar: SIMD2(-1.15, -2.0),
             cameraZoom: 1.5
@@ -217,6 +230,8 @@ enum CosmosCourse {
                 .launchPad(center: SIMD2(-1.15, -2.55), direction: SIMD2(0, -1), speed: 3.2,
                            lift: 1.8, y: 0),
                 .magnet(center: SIMD2(-0.55, -4.05), radius: 0.5, strength: -2.0, y: 0),
+                critter(.alien, at: SIMD2(-0.4, -2.3),
+                        .patrol(axis: alongLane, amplitude: 0.2), speed: 0.8),
             ],
             bonusStar: SIMD2(0.3, -2.3),
             cameraZoom: 1.55
