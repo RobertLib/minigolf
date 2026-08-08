@@ -105,11 +105,10 @@ enum Scenery {
             let angle = (Float(i) + rng.float(in: 0.1...0.9)) * slice
             let distance = rng.float(in: 3.0...9.0)
             let radius = rng.float(in: 1.0...2.8)
-            let dome = ModelEntity(mesh: .generateSphere(radius: radius),
-                                   materials: [tones[Int(rng.next() % 3)]])
-            dome.scale = SIMD3(rng.float(in: 0.8...1.3),
-                               rng.float(in: 0.10...0.22),
-                               rng.float(in: 0.8...1.3))
+            let dome = Prim.sphere(radius: radius, material: tones[Int(rng.next() % 3)])
+            dome.scale *= SIMD3(rng.float(in: 0.8...1.3),
+                                rng.float(in: 0.10...0.22),
+                                rng.float(in: 0.8...1.3))
             // Sunk to its waist, so only the swell shows above the slab.
             dome.position = SIMD3(bounds.center.x + cos(angle) * (half.x + distance),
                                   groundY - 0.02,
@@ -157,9 +156,10 @@ enum Scenery {
             roughness: 1.0)
 
         func slab(x0: Float, x1: Float, z0: Float, z1: Float) {
-            let entity = ModelEntity(
-                mesh: .generateBox(width: x1 - x0, height: depth, depth: z1 - z0),
-                materials: [paving])
+            let entity = Prim.box(width: x1 - x0,
+                                  height: depth,
+                                  depth: z1 - z0,
+                                  material: paving)
             entity.name = "apron"
             entity.position = SIMD3((x0 + x1) / 2, top - depth / 2, (z0 + z1) / 2)
             root.addChild(entity)
@@ -186,10 +186,11 @@ enum Scenery {
         }
         let lip: Float = 0.06
         func kerb(x0: Float, x1: Float, z0: Float, z1: Float) {
-            let entity = ModelEntity(
-                mesh: .generateBox(width: x1 - x0, height: 0.06, depth: z1 - z0,
-                                   cornerRadius: 0.012),
-                materials: [kerbMaterial])
+            let entity = Prim.roundedBox(width: x1 - x0,
+                                         height: 0.06,
+                                         depth: z1 - z0,
+                                         cornerRadius: 0.012,
+                                         material: kerbMaterial)
             entity.name = "kerb"
             entity.position = SIMD3((x0 + x1) / 2, top - 0.01, (z0 + z1) / 2)
             root.addChild(entity)
@@ -246,12 +247,11 @@ enum Scenery {
                 // Rolling hill with a copse on its shoulder.
                 let radius = rng.float(in: 2.2...4.0)
                 let lift = rng.float(in: 0.30...0.48)
-                let hill = ModelEntity(
-                    mesh: .generateSphere(radius: radius),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(red: 0.32, green: 0.50, blue: 0.26, alpha: 1), theme),
-                        roughness: 1.0)])
-                hill.scale = SIMD3(1, lift, rng.float(in: 0.8...1.2))
+                let hillMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(red: 0.32, green: 0.50, blue: 0.26, alpha: 1), theme),
+                    roughness: 1.0)
+                let hill = Prim.sphere(radius: radius, material: hillMaterial)
+                hill.scale *= SIMD3(1, lift, rng.float(in: 0.8...1.2))
                 group.addChild(hill)
 
                 let canopy = SceneBuilder.simpleMaterial(
@@ -263,9 +263,9 @@ enum Scenery {
                     let offset = rng.float(in: -0.6...0.6) * radius
                     let side = rng.float(in: -0.4...0.4) * radius
                     let t = sqrt(max(0, 1 - (offset * offset + side * side) / (radius * radius)))
-                    let tree = ModelEntity(mesh: .generateSphere(radius: rng.float(in: 0.28...0.5)),
-                                           materials: [canopy])
-                    tree.scale = SIMD3(1, 1.5, 1)
+                    let tree = Prim.sphere(radius: rng.float(in: 0.28...0.5),
+                                           material: canopy)
+                    tree.scale *= SIMD3(1, 1.5, 1)
                     tree.position = SIMD3(offset, radius * lift * t, side)
                     group.addChild(tree)
                 }
@@ -276,8 +276,7 @@ enum Scenery {
                     roughness: 1.0)
                 for i in 0..<5 {
                     let height = rng.float(in: 1.6...2.8)
-                    let poplar = ModelEntity(mesh: .generateCone(height: height, radius: 0.26),
-                                             materials: [bark])
+                    let poplar = Prim.cone(height: height, radius: 0.26, material: bark)
                     poplar.position = SIMD3(Float(i - 2) * 0.75 + rng.float(in: -0.1...0.1),
                                             height / 2, rng.float(in: -0.2...0.2))
                     group.addChild(poplar)
@@ -298,11 +297,11 @@ enum Scenery {
                                       green: 0.44 - CGFloat(tier) * 0.05,
                                       blue: 0.30, alpha: 1), theme, 0.28 + CGFloat(tier) * 0.04),
                         roughness: 1.0)
-                    let slab = ModelEntity(
-                        mesh: .generateBox(width: width * shrink, height: tierHeight,
-                                           depth: width * shrink * rng.float(in: 0.7...1.0),
-                                           cornerRadius: 0.06),
-                        materials: [rock])
+                    let slab = Prim.roundedBox(width: width * shrink,
+                                               height: tierHeight,
+                                               depth: width * shrink * rng.float(in: 0.7...1.0),
+                                               cornerRadius: 0.06,
+                                               material: rock)
                     slab.position.y = y + tierHeight / 2
                     slab.orientation = simd_quatf(angle: rng.float(in: -0.12...0.12),
                                                   axis: SIMD3(0, 1, 0))
@@ -311,11 +310,12 @@ enum Scenery {
                 }
             } else {
                 // Dune: one long crest, always broadside to the course.
-                let dune = ModelEntity(
-                    mesh: .generateSphere(radius: rng.float(in: 2.4...4.2)),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(theme.sandColor, theme, 0.22), roughness: 1.0)])
-                dune.scale = SIMD3(rng.float(in: 1.2...1.8), rng.float(in: 0.22...0.36), 0.7)
+                let duneMaterial = SceneBuilder.simpleMaterial(
+                    faded(theme.sandColor, theme, 0.22),
+                    roughness: 1.0)
+                let dune = Prim.sphere(radius: rng.float(in: 2.4...4.2),
+                                       material: duneMaterial)
+                dune.scale *= SIMD3(rng.float(in: 1.2...1.8), rng.float(in: 0.22...0.36), 0.7)
                 group.addChild(dune)
             }
 
@@ -331,13 +331,12 @@ enum Scenery {
                 for i in 0..<3 {
                     let height = rng.float(in: 1.6...2.8)
                     let x = Float(i - 1) * rng.float(in: 0.9...1.4)
-                    let stem = ModelEntity(mesh: .generateCylinder(height: height, radius: 0.1),
-                                           materials: [trunk])
+                    let stem = Prim.cylinder(height: height, radius: 0.1, material: trunk)
                     stem.position = SIMD3(x, height / 2, 0)
                     group.addChild(stem)
-                    let crown = ModelEntity(mesh: .generateSphere(radius: rng.float(in: 0.9...1.5)),
-                                            materials: [leaf])
-                    crown.scale = SIMD3(1.2, 0.75, 1.2)
+                    let crown = Prim.sphere(radius: rng.float(in: 0.9...1.5),
+                                            material: leaf)
+                    crown.scale *= SIMD3(1.2, 0.75, 1.2)
                     crown.position = SIMD3(x, height + 0.2, rng.float(in: -0.3...0.3))
                     group.addChild(crown)
                 }
@@ -350,10 +349,11 @@ enum Scenery {
                 for tier in 0..<4 {
                     let side = base * (1 - Float(tier) * 0.2)
                     let tierHeight: Float = 0.42
-                    let block = ModelEntity(
-                        mesh: .generateBox(width: side, height: tierHeight, depth: side,
-                                           cornerRadius: 0.02),
-                        materials: [stone])
+                    let block = Prim.roundedBox(width: side,
+                                                height: tierHeight,
+                                                depth: side,
+                                                cornerRadius: 0.02,
+                                                material: stone)
                     block.position.y = y + tierHeight / 2
                     group.addChild(block)
                     y += tierHeight
@@ -366,17 +366,18 @@ enum Scenery {
                 // mountain rather than a grey cone.
                 let height = rng.float(in: 2.6...4.4)
                 let radius = rng.float(in: 1.2...2.0)
-                let rock = ModelEntity(
-                    mesh: .generateCone(height: height, radius: radius),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(red: 0.44, green: 0.52, blue: 0.62, alpha: 1), theme, 0.34),
-                        roughness: 1.0)])
+                let rockMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(red: 0.44, green: 0.52, blue: 0.62, alpha: 1), theme, 0.34),
+                    roughness: 1.0)
+                let rock = Prim.cone(height: height, radius: radius, material: rockMaterial)
                 rock.position.y = height / 2
                 group.addChild(rock)
-                let cap = ModelEntity(
-                    mesh: .generateCone(height: height * 0.34, radius: radius * 0.36),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(white: 0.98, alpha: 1), theme, 0.14), roughness: 0.9)])
+                let capMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(white: 0.98, alpha: 1), theme, 0.14),
+                    roughness: 0.9)
+                let cap = Prim.cone(height: height * 0.34,
+                                    radius: radius * 0.36,
+                                    material: capMaterial)
                 cap.position.y = height * 0.83
                 group.addChild(cap)
             } else {
@@ -388,10 +389,11 @@ enum Scenery {
                 glass.blending = .transparent(opacity: 0.85)
                 for i in 0..<3 {
                     let height = rng.float(in: 0.8...1.9)
-                    let shard = ModelEntity(
-                        mesh: .generateBox(width: rng.float(in: 0.7...1.4), height: height,
-                                           depth: rng.float(in: 0.7...1.4), cornerRadius: 0.05),
-                        materials: [glass])
+                    let shard = Prim.roundedBox(width: rng.float(in: 0.7...1.4),
+                                                height: height,
+                                                depth: rng.float(in: 0.7...1.4),
+                                                cornerRadius: 0.05,
+                                                material: glass)
                     shard.position = SIMD3(Float(i - 1) * rng.float(in: 0.5...0.9), height / 2,
                                            rng.float(in: -0.4...0.4))
                     shard.orientation = simd_quatf(angle: rng.float(in: -0.3...0.3),
@@ -405,11 +407,14 @@ enum Scenery {
             // silhouette has to come from the windows rather than the sun.
             let height = rng.float(in: 2.4...5.2)
             let width = rng.float(in: 0.6...1.3)
-            let shell = ModelEntity(
-                mesh: .generateBox(width: width, height: height, depth: width * 0.8,
-                                   cornerRadius: 0.03),
-                materials: [SceneBuilder.simpleMaterial(
-                    UIColor(red: 0.06, green: 0.05, blue: 0.13, alpha: 1), roughness: 0.6)])
+            let shellMaterial = SceneBuilder.simpleMaterial(
+                UIColor(red: 0.06, green: 0.05, blue: 0.13, alpha: 1),
+                roughness: 0.6)
+            let shell = Prim.roundedBox(width: width,
+                                        height: height,
+                                        depth: width * 0.8,
+                                        cornerRadius: 0.03,
+                                        material: shellMaterial)
             shell.position.y = height / 2
             group.addChild(shell)
 
@@ -418,14 +423,15 @@ enum Scenery {
             strip.color = .init(tint: hue)
             let bands = Int(rng.float(in: 3...6))
             for i in 0..<bands {
-                let band = ModelEntity(
-                    mesh: .generateBox(width: width * 1.02, height: 0.05, depth: width * 0.82),
-                    materials: [strip])
+                let band = Prim.box(width: width * 1.02,
+                                    height: 0.05,
+                                    depth: width * 0.82,
+                                    material: strip)
                 band.position.y = height * (Float(i) + 0.8) / Float(bands + 1)
                 group.addChild(band)
             }
             // Aircraft light on the roof.
-            let beacon = ModelEntity(mesh: .generateSphere(radius: 0.07), materials: [strip])
+            let beacon = Prim.sphere(radius: 0.07, material: strip)
             beacon.position.y = height + 0.06
             group.addChild(beacon)
 
@@ -434,11 +440,10 @@ enum Scenery {
                 // Cone with a lit crater and a column of smoke over it.
                 let height = rng.float(in: 2.4...4.2)
                 let radius = rng.float(in: 1.6...2.8)
-                let cone = ModelEntity(
-                    mesh: .generateCone(height: height, radius: radius),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(red: 0.16, green: 0.13, blue: 0.13, alpha: 1), theme, 0.22),
-                        roughness: 1.0)])
+                let coneMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(red: 0.16, green: 0.13, blue: 0.13, alpha: 1), theme, 0.22),
+                    roughness: 1.0)
+                let cone = Prim.cone(height: height, radius: radius, material: coneMaterial)
                 cone.position.y = height / 2
                 group.addChild(cone)
 
@@ -447,9 +452,9 @@ enum Scenery {
                 molten.emissiveColor = .init(color: theme.lavaColor)
                 molten.emissiveIntensity = 2.4
                 molten.roughness = 0.6
-                let crater = ModelEntity(
-                    mesh: .generateCylinder(height: 0.05, radius: radius * 0.17),
-                    materials: [molten])
+                let crater = Prim.cylinder(height: 0.05,
+                                           radius: radius * 0.17,
+                                           material: molten)
                 crater.position.y = height * 0.99
                 group.addChild(crater)
 
@@ -457,8 +462,7 @@ enum Scenery {
                     faded(UIColor(white: 0.22, alpha: 1), theme, 0.4), roughness: 1.0)
                 for i in 0..<3 {
                     let t = Float(i)
-                    let puff = ModelEntity(mesh: .generateSphere(radius: 0.35 + t * 0.22),
-                                           materials: [ash])
+                    let puff = Prim.sphere(radius: 0.35 + t * 0.22, material: ash)
                     puff.position = SIMD3(rng.float(in: -0.3...0.3) * (t + 1),
                                           height + 0.4 + t * 0.75, rng.float(in: -0.2...0.2))
                     group.addChild(puff)
@@ -470,10 +474,11 @@ enum Scenery {
                     roughness: 1.0)
                 for i in 0..<4 {
                     let height = rng.float(in: 1.0...2.6)
-                    let slab = ModelEntity(
-                        mesh: .generateBox(width: rng.float(in: 0.5...0.9), height: height,
-                                           depth: rng.float(in: 0.5...0.9), cornerRadius: 0.03),
-                        materials: [rock])
+                    let slab = Prim.roundedBox(width: rng.float(in: 0.5...0.9),
+                                               height: height,
+                                               depth: rng.float(in: 0.5...0.9),
+                                               cornerRadius: 0.03,
+                                               material: rock)
                     slab.position = SIMD3(Float(i - 2) * 0.7, height / 2, rng.float(in: -0.4...0.4))
                     slab.orientation = simd_quatf(angle: rng.float(in: -0.22...0.22),
                                                   axis: SIMD3(0, 0, 1))
@@ -486,24 +491,27 @@ enum Scenery {
                 // Factory chimney, brass-banded, still working.
                 let height = rng.float(in: 2.4...4.0)
                 let radius = rng.float(in: 0.24...0.42)
-                let brick = ModelEntity(
-                    mesh: .generateCylinder(height: height, radius: radius),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(red: 0.42, green: 0.26, blue: 0.19, alpha: 1), theme, 0.26),
-                        roughness: 1.0)])
+                let brickMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(red: 0.42, green: 0.26, blue: 0.19, alpha: 1), theme, 0.26),
+                    roughness: 1.0)
+                let brick = Prim.cylinder(height: height,
+                                          radius: radius,
+                                          material: brickMaterial)
                 brick.position.y = height / 2
                 group.addChild(brick)
-                let band = ModelEntity(
-                    mesh: .generateCylinder(height: 0.12, radius: radius * 1.18),
-                    materials: [SceneBuilder.simpleMaterial(faded(theme.wallTopColor, theme, 0.2),
-                                                            roughness: 0.4, metallic: 0.7)])
+                let bandMaterial = SceneBuilder.simpleMaterial(
+                    faded(theme.wallTopColor, theme, 0.2),
+                    roughness: 0.4,
+                    metallic: 0.7)
+                let band = Prim.cylinder(height: 0.12,
+                                         radius: radius * 1.18,
+                                         material: bandMaterial)
                 band.position.y = height - 0.2
                 group.addChild(band)
                 let smoke = SceneBuilder.simpleMaterial(
                     faded(UIColor(white: 0.55, alpha: 1), theme, 0.45), roughness: 1.0)
                 for i in 0..<2 {
-                    let puff = ModelEntity(mesh: .generateSphere(radius: 0.24 + Float(i) * 0.16),
-                                           materials: [smoke])
+                    let puff = Prim.sphere(radius: 0.24 + Float(i) * 0.16, material: smoke)
                     puff.position = SIMD3(rng.float(in: -0.2...0.2), height + 0.3 + Float(i) * 0.6,
                                           rng.float(in: -0.2...0.2))
                     group.addChild(puff)
@@ -516,16 +524,16 @@ enum Scenery {
                 let brass = SceneBuilder.simpleMaterial(faded(theme.wallTopColor, theme, 0.18),
                                                         roughness: 0.35, metallic: 0.8)
                 let height = rng.float(in: 1.8...3.2)
-                let housing = ModelEntity(
-                    mesh: .generateBox(width: 1.0, height: height, depth: 1.0, cornerRadius: 0.05),
-                    materials: [iron])
+                let housing = Prim.roundedBox(width: 1.0,
+                                              height: height,
+                                              depth: 1.0,
+                                              cornerRadius: 0.05,
+                                              material: iron)
                 housing.position.y = height / 2
                 group.addChild(housing)
                 for i in 0..<2 {
                     let radius = rng.float(in: 0.34...0.55)
-                    let cog = ModelEntity(
-                        mesh: .generateCylinder(height: 0.12, radius: radius),
-                        materials: [brass])
+                    let cog = Prim.cylinder(height: 0.12, radius: radius, material: brass)
                     cog.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0))
                     cog.position = SIMD3(rng.float(in: -0.3...0.3),
                                          height * (0.4 + Float(i) * 0.4), 0.52)
@@ -538,51 +546,52 @@ enum Scenery {
                 // Sea stack, tipped by a century of weather.
                 let height = rng.float(in: 1.6...3.4)
                 let width = rng.float(in: 1.2...2.6)
-                let cliff = ModelEntity(
-                    mesh: .generateBox(width: width, height: height,
-                                       depth: width * rng.float(in: 0.6...1.0), cornerRadius: 0.08),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(red: 0.32, green: 0.35, blue: 0.38, alpha: 1), theme, 0.3),
-                        roughness: 1.0)])
+                let cliffMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(red: 0.32, green: 0.35, blue: 0.38, alpha: 1), theme, 0.3),
+                    roughness: 1.0)
+                let cliff = Prim.roundedBox(width: width,
+                                            height: height,
+                                            depth: width * rng.float(in: 0.6...1.0),
+                                            cornerRadius: 0.08,
+                                            material: cliffMaterial)
                 cliff.position.y = height / 2
                 cliff.orientation = simd_quatf(angle: rng.float(in: -0.14...0.14),
                                                axis: SIMD3(0, 0, 1))
                 group.addChild(cliff)
-                let turf = ModelEntity(
-                    mesh: .generateSphere(radius: width * 0.5),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(red: 0.30, green: 0.38, blue: 0.26, alpha: 1), theme, 0.3),
-                        roughness: 1.0)])
-                turf.scale = SIMD3(1, 0.2, 1)
+                let turfMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(red: 0.30, green: 0.38, blue: 0.26, alpha: 1), theme, 0.3),
+                    roughness: 1.0)
+                let turf = Prim.sphere(radius: width * 0.5, material: turfMaterial)
+                turf.scale *= SIMD3(1, 0.2, 1)
                 turf.position.y = height
                 group.addChild(turf)
             } else {
                 // Lighthouse. One warm light in a grey world does more for the
                 // mood than any amount of rock.
                 let height = rng.float(in: 2.2...3.2)
-                let tower = ModelEntity(
-                    mesh: .generateCone(height: height, radius: 0.42),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(white: 0.88, alpha: 1), theme, 0.2), roughness: 0.8)])
+                let towerMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(white: 0.88, alpha: 1), theme, 0.2),
+                    roughness: 0.8)
+                let tower = Prim.cone(height: height, radius: 0.42, material: towerMaterial)
                 tower.position.y = height / 2
                 group.addChild(tower)
-                let stripe = ModelEntity(
-                    mesh: .generateCylinder(height: height * 0.16, radius: 0.31),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(red: 0.75, green: 0.20, blue: 0.16, alpha: 1), theme, 0.2),
-                        roughness: 0.8)])
+                let stripeMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(red: 0.75, green: 0.20, blue: 0.16, alpha: 1), theme, 0.2),
+                    roughness: 0.8)
+                let stripe = Prim.cylinder(height: height * 0.16,
+                                           radius: 0.31,
+                                           material: stripeMaterial)
                 stripe.position.y = height * 0.62
                 group.addChild(stripe)
                 var lamp = UnlitMaterial()
                 lamp.color = .init(tint: theme.accent)
-                let light = ModelEntity(mesh: .generateSphere(radius: 0.16), materials: [lamp])
+                let light = Prim.sphere(radius: 0.16, material: lamp)
                 light.position.y = height + 0.06
                 group.addChild(light)
-                let roof = ModelEntity(
-                    mesh: .generateCone(height: 0.24, radius: 0.22),
-                    materials: [SceneBuilder.simpleMaterial(
-                        faded(UIColor(red: 0.28, green: 0.30, blue: 0.34, alpha: 1), theme, 0.2),
-                        roughness: 0.8)])
+                let roofMaterial = SceneBuilder.simpleMaterial(
+                    faded(UIColor(red: 0.28, green: 0.30, blue: 0.34, alpha: 1), theme, 0.2),
+                    roughness: 0.8)
+                let roof = Prim.cone(height: 0.24, radius: 0.22, material: roofMaterial)
                 roof.position.y = height + 0.3
                 group.addChild(roof)
             }
@@ -595,9 +604,8 @@ enum Scenery {
                 roughness: 1.0)
             let lift = rng.float(in: 0.8...3.2)
             for i in 0..<3 {
-                let rock = ModelEntity(mesh: .generateSphere(radius: rng.float(in: 0.3...0.9)),
-                                       materials: [stone])
-                rock.scale = SIMD3(1.3, rng.float(in: 0.6...0.9), 1.0)
+                let rock = Prim.sphere(radius: rng.float(in: 0.3...0.9), material: stone)
+                rock.scale *= SIMD3(1.3, rng.float(in: 0.6...0.9), 1.0)
                 rock.position = SIMD3(rng.float(in: -0.9...0.9), lift + Float(i) * 0.3,
                                       rng.float(in: -0.9...0.9))
                 rock.orientation = simd_quatf(angle: rng.float(in: 0...(2 * .pi)),
@@ -619,7 +627,7 @@ enum Scenery {
         body.emissiveColor = .init(color: UIColor(red: 0.20, green: 0.16, blue: 0.34, alpha: 1))
         body.emissiveIntensity = 0.5
         body.roughness = 1.0
-        let planet = ModelEntity(mesh: .generateSphere(radius: radius), materials: [body])
+        let planet = Prim.sphere(radius: radius, material: body)
         group.addChild(planet)
 
         var ring = PhysicallyBasedMaterial()
@@ -628,8 +636,7 @@ enum Scenery {
         ring.emissiveIntensity = 0.35
         ring.roughness = 0.8
         ring.blending = .transparent(opacity: 0.42)
-        let halo = ModelEntity(mesh: .generateCylinder(height: 0.04, radius: radius * 1.75),
-                               materials: [ring])
+        let halo = Prim.cylinder(height: 0.04, radius: radius * 1.75, material: ring)
         halo.orientation = simd_quatf(angle: 0.34, axis: SIMD3(1, 0, 0))
         group.addChild(halo)
 

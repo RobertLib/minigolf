@@ -91,6 +91,7 @@ Minigolf/
 │   ├── Scenery.swift            prostředí mimo green: obloha, terén s vlnami,
 │   │                            dlážděný lem jamky, obzor a počasí ve vzduchu
 │   ├── Obstacles.swift          stavitelé překážek + animace kinematiky
+│   ├── Primitives.swift         sdílené meshe kulisy (jeden tvar, škálovaný)
 │   ├── Critters.swift           postavičky světů: modely + chůze po greenu
 │   ├── AimGuide.swift           předpověď dráhy putu ze statické geometrie
 │   ├── AimGuideRenderer.swift   tečkovaná čára + značka dopadu
@@ -235,6 +236,10 @@ Zbývá udělat ručně v App Store Connect:
 - Denní jamka je odvozená jen z data (FNV-1a hash dne → SplitMix64), takže je stejná
   na každém zařízení bez jakéhokoli serveru, a nikdy se neopakuje dva dny po sobě.
 - Scéna se staví znovu pro každou jamku (`sceneToken`), takže restart je vždy čistý.
+  Aby to nezaseklo obraz, staví se ze sdílených dílů: kulisy (kopce, stromy, komíny,
+  kolejnice loopingu) mají jeden mesh na tvar a liší se jen škálou (`Prim`), materiály
+  se cachují podle barvy a sada materiálů světa se drží od první jamky. Jamka se pak
+  postaví za zlomek času, který stálo generovat pár set meshů a materiálů znovu.
 - Assety lze přegenerovat skripty ve složce `Tools/`:
   `python3 Tools/gen_sounds.py` (zvuky a hudba, čistá sinusová syntéza),
   `swift Tools/gen_icon.swift <cesta k PNG>` (ikona aplikace),

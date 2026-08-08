@@ -307,7 +307,7 @@ enum SceneBuilder {
         var surfaceRegions: [SurfaceRegion] = []
         var hazardRegions: [HazardRegion] = []
 
-        let materials = ThemeMaterials(theme: theme, course: level.course)
+        let materials = ThemeMaterials.shared(for: level.course)
 
         Scenery.buildSky(theme: theme, course: level.course, into: root)
         Scenery.buildTerrain(level: level, theme: theme, materials: materials, into: root)
@@ -857,41 +857,49 @@ enum SceneBuilder {
             if rng.chance(0.55) {
                 // Tree
                 let height = rng.float(in: 0.5...0.9)
-                let trunk = ModelEntity(
-                    mesh: .generateCylinder(height: height * 0.5, radius: 0.035),
-                    materials: [simpleMaterial(UIColor(red: 0.42, green: 0.29, blue: 0.18, alpha: 1), roughness: 0.9)])
+                let trunkMaterial = simpleMaterial(
+                    UIColor(red: 0.42, green: 0.29, blue: 0.18, alpha: 1),
+                    roughness: 0.9)
+                let trunk = Prim.cylinder(height: height * 0.5,
+                                          radius: 0.035,
+                                          material: trunkMaterial)
                 trunk.position.y = height * 0.25
                 group.addChild(trunk)
                 let canopyColor = UIColor(
                     red: 0.18 + CGFloat(rng.float(in: 0...0.12)),
                     green: 0.5 + CGFloat(rng.float(in: 0...0.2)),
                     blue: 0.2, alpha: 1)
-                let canopy = ModelEntity(
-                    mesh: .generateSphere(radius: height * 0.32),
-                    materials: [simpleMaterial(canopyColor, roughness: 0.95)])
+                let canopyMaterial = simpleMaterial(canopyColor,
+                                                    roughness: 0.95)
+                let canopy = Prim.sphere(radius: height * 0.32, material: canopyMaterial)
                 canopy.position.y = height * 0.62
-                canopy.scale = SIMD3(1, 1.15, 1)
+                canopy.scale *= SIMD3(1, 1.15, 1)
                 group.addChild(canopy)
             } else if rng.chance(0.5) {
                 // Bush
-                let bush = ModelEntity(
-                    mesh: .generateSphere(radius: rng.float(in: 0.1...0.18)),
-                    materials: [simpleMaterial(UIColor(red: 0.25, green: 0.55, blue: 0.25, alpha: 1), roughness: 0.95)])
-                bush.scale = SIMD3(1.2, 0.8, 1.2)
+                let bushMaterial = simpleMaterial(
+                    UIColor(red: 0.25, green: 0.55, blue: 0.25, alpha: 1),
+                    roughness: 0.95)
+                let bush = Prim.sphere(radius: rng.float(in: 0.1...0.18),
+                                       material: bushMaterial)
+                bush.scale *= SIMD3(1.2, 0.8, 1.2)
                 bush.position.y = 0.06
                 group.addChild(bush)
             } else {
                 // Flower
                 let stemHeight = rng.float(in: 0.1...0.16)
-                let stem = ModelEntity(
-                    mesh: .generateCylinder(height: stemHeight, radius: 0.006),
-                    materials: [simpleMaterial(UIColor(red: 0.3, green: 0.6, blue: 0.3, alpha: 1), roughness: 0.9)])
+                let stemMaterial = simpleMaterial(
+                    UIColor(red: 0.3, green: 0.6, blue: 0.3, alpha: 1),
+                    roughness: 0.9)
+                let stem = Prim.cylinder(height: stemHeight,
+                                         radius: 0.006,
+                                         material: stemMaterial)
                 stem.position.y = stemHeight / 2
                 group.addChild(stem)
                 let petals: [UIColor] = [.systemPink, .systemYellow, .white, .systemOrange]
-                let head = ModelEntity(
-                    mesh: .generateSphere(radius: 0.028),
-                    materials: [simpleMaterial(petals[Int(rng.next() % 4)], roughness: 0.7)])
+                let headMaterial = simpleMaterial(petals[Int(rng.next() % 4)],
+                                                  roughness: 0.7)
+                let head = Prim.sphere(radius: 0.028, material: headMaterial)
                 head.position.y = stemHeight + 0.02
                 group.addChild(head)
             }
@@ -900,27 +908,28 @@ enum SceneBuilder {
                 // Cactus
                 let height = rng.float(in: 0.3...0.55)
                 let green = UIColor(red: 0.3, green: 0.55, blue: 0.3, alpha: 1)
-                let body = ModelEntity(
-                    mesh: .generateCylinder(height: height, radius: 0.05),
-                    materials: [simpleMaterial(green, roughness: 0.85)])
+                let body = Prim.cylinder(height: height,
+                                         radius: 0.05,
+                                         material: simpleMaterial(green, roughness: 0.85))
                 body.position.y = height / 2
                 group.addChild(body)
-                let arm = ModelEntity(
-                    mesh: .generateCylinder(height: height * 0.4, radius: 0.032),
-                    materials: [simpleMaterial(green, roughness: 0.85)])
+                let arm = Prim.cylinder(height: height * 0.4,
+                                        radius: 0.032,
+                                        material: simpleMaterial(green, roughness: 0.85))
                 arm.position = SIMD3(0.08, height * 0.55, 0)
                 group.addChild(arm)
-                let cap = ModelEntity(
-                    mesh: .generateSphere(radius: 0.05),
-                    materials: [simpleMaterial(green, roughness: 0.85)])
+                let cap = Prim.sphere(radius: 0.05,
+                                      material: simpleMaterial(green, roughness: 0.85))
                 cap.position.y = height
                 group.addChild(cap)
             } else {
                 // Rock
-                let rock = ModelEntity(
-                    mesh: .generateSphere(radius: rng.float(in: 0.08...0.2)),
-                    materials: [simpleMaterial(UIColor(red: 0.6, green: 0.5, blue: 0.42, alpha: 1), roughness: 1.0)])
-                rock.scale = SIMD3(1.3, rng.float(in: 0.5...0.75), 1.0)
+                let rockMaterial = simpleMaterial(
+                    UIColor(red: 0.6, green: 0.5, blue: 0.42, alpha: 1),
+                    roughness: 1.0)
+                let rock = Prim.sphere(radius: rng.float(in: 0.08...0.2),
+                                       material: rockMaterial)
+                rock.scale *= SIMD3(1.3, rng.float(in: 0.5...0.75), 1.0)
                 rock.orientation = simd_quatf(angle: rng.float(in: 0...(2 * .pi)), axis: SIMD3(0, 1, 0))
                 rock.position.y = 0.03
                 group.addChild(rock)
@@ -929,10 +938,12 @@ enum SceneBuilder {
             if rng.chance(0.5) {
                 // Palm: bare trunk with a crown of drooping fronds.
                 let height = rng.float(in: 0.55...0.95)
-                let trunk = ModelEntity(
-                    mesh: .generateCylinder(height: height, radius: 0.028),
-                    materials: [simpleMaterial(UIColor(red: 0.38, green: 0.30, blue: 0.20, alpha: 1),
-                                               roughness: 0.9)])
+                let trunkMaterial = simpleMaterial(
+                    UIColor(red: 0.38, green: 0.30, blue: 0.20, alpha: 1),
+                    roughness: 0.9)
+                let trunk = Prim.cylinder(height: height,
+                                          radius: 0.028,
+                                          material: trunkMaterial)
                 trunk.position.y = height / 2
                 trunk.orientation = simd_quatf(angle: rng.float(in: -0.1...0.1), axis: SIMD3(0, 0, 1))
                 group.addChild(trunk)
@@ -941,10 +952,13 @@ enum SceneBuilder {
                 // Each frond hangs off the crown, so the holder sits at the top
                 // of the trunk and only tilts the leaf outward and down.
                 for i in 0..<5 {
-                    let frond = ModelEntity(
-                        mesh: .generateBox(width: 0.26, height: 0.012, depth: 0.08,
-                                           cornerRadius: 0.03),
-                        materials: [simpleMaterial(frondColor, roughness: 0.95)])
+                    let frondMaterial = simpleMaterial(frondColor,
+                                                       roughness: 0.95)
+                    let frond = Prim.roundedBox(width: 0.26,
+                                                height: 0.012,
+                                                depth: 0.08,
+                                                cornerRadius: 0.03,
+                                                material: frondMaterial)
                     frond.position = SIMD3(0.14, 0, 0)
                     let holder = Entity()
                     holder.position.y = height - 0.02
@@ -957,10 +971,13 @@ enum SceneBuilder {
                 // Fern clump
                 let color = UIColor(red: 0.17, green: 0.44, blue: 0.22, alpha: 1)
                 for i in 0..<4 {
-                    let leaf = ModelEntity(
-                        mesh: .generateBox(width: 0.05, height: 0.16, depth: 0.02,
-                                           cornerRadius: 0.02),
-                        materials: [simpleMaterial(color, roughness: 0.95)])
+                    let leafMaterial = simpleMaterial(color,
+                                                      roughness: 0.95)
+                    let leaf = Prim.roundedBox(width: 0.05,
+                                               height: 0.16,
+                                               depth: 0.02,
+                                               cornerRadius: 0.02,
+                                               material: leafMaterial)
                     leaf.position = SIMD3(0, 0.08, 0)
                     let holder = Entity()
                     holder.orientation = simd_quatf(angle: Float(i) * 1.57, axis: SIMD3(0, 1, 0)) *
@@ -972,14 +989,14 @@ enum SceneBuilder {
                 // Toppled temple column
                 let height = rng.float(in: 0.18...0.34)
                 let stone = simpleMaterial(theme.wallTopColor, roughness: 0.95)
-                let column = ModelEntity(
-                    mesh: .generateCylinder(height: height, radius: 0.055),
-                    materials: [stone])
+                let column = Prim.cylinder(height: height, radius: 0.055, material: stone)
                 column.position.y = height / 2
                 group.addChild(column)
-                let capital = ModelEntity(
-                    mesh: .generateBox(width: 0.14, height: 0.035, depth: 0.14, cornerRadius: 0.008),
-                    materials: [stone])
+                let capital = Prim.roundedBox(width: 0.14,
+                                              height: 0.035,
+                                              depth: 0.14,
+                                              cornerRadius: 0.008,
+                                              material: stone)
                 capital.position.y = height
                 group.addChild(capital)
                 group.orientation = simd_quatf(angle: rng.float(in: -0.2...0.2), axis: SIMD3(0, 0, 1))
@@ -988,25 +1005,26 @@ enum SceneBuilder {
             if rng.chance(0.45) {
                 // Snow-laden fir
                 let height = rng.float(in: 0.5...0.9)
-                let trunk = ModelEntity(
-                    mesh: .generateCylinder(height: height * 0.3, radius: 0.026),
-                    materials: [simpleMaterial(UIColor(red: 0.34, green: 0.26, blue: 0.20, alpha: 1),
-                                               roughness: 0.9)])
+                let trunkMaterial = simpleMaterial(
+                    UIColor(red: 0.34, green: 0.26, blue: 0.20, alpha: 1),
+                    roughness: 0.9)
+                let trunk = Prim.cylinder(height: height * 0.3,
+                                          radius: 0.026,
+                                          material: trunkMaterial)
                 trunk.position.y = height * 0.15
                 group.addChild(trunk)
                 let needle = simpleMaterial(UIColor(red: 0.14, green: 0.34, blue: 0.28, alpha: 1),
                                             roughness: 0.9)
                 for i in 0..<3 {
                     let t = Float(i)
-                    let tier = ModelEntity(
-                        mesh: .generateCone(height: height * 0.4, radius: height * (0.22 - t * 0.05)),
-                        materials: [needle])
+                    let tier = Prim.cone(height: height * 0.4,
+                                         radius: height * (0.22 - t * 0.05),
+                                         material: needle)
                     tier.position.y = height * (0.3 + t * 0.22)
                     group.addChild(tier)
                 }
-                let cap = ModelEntity(
-                    mesh: .generateSphere(radius: height * 0.07),
-                    materials: [simpleMaterial(.white, roughness: 0.85)])
+                let cap = Prim.sphere(radius: height * 0.07,
+                                      material: simpleMaterial(.white, roughness: 0.85))
                 cap.position.y = height * 0.92
                 group.addChild(cap)
             } else if rng.chance(0.55) {
@@ -1017,18 +1035,19 @@ enum SceneBuilder {
                 material.roughness = 0.12
                 material.metallic = 0.1
                 material.blending = .transparent(opacity: 0.82)
-                let shard = ModelEntity(
-                    mesh: .generateCone(height: height, radius: height * 0.24),
-                    materials: [material])
+                let shard = Prim.cone(height: height,
+                                      radius: height * 0.24,
+                                      material: material)
                 shard.position.y = height / 2
                 shard.orientation = simd_quatf(angle: rng.float(in: -0.2...0.2), axis: SIMD3(0, 0, 1))
                 group.addChild(shard)
             } else {
                 // Snow drift
-                let drift = ModelEntity(
-                    mesh: .generateSphere(radius: rng.float(in: 0.12...0.24)),
-                    materials: [simpleMaterial(UIColor(white: 0.97, alpha: 1), roughness: 0.85)])
-                drift.scale = SIMD3(1.4, rng.float(in: 0.35...0.6), 1.2)
+                let driftMaterial = simpleMaterial(UIColor(white: 0.97, alpha: 1),
+                                                   roughness: 0.85)
+                let drift = Prim.sphere(radius: rng.float(in: 0.12...0.24),
+                                        material: driftMaterial)
+                drift.scale *= SIMD3(1.4, rng.float(in: 0.35...0.6), 1.2)
                 drift.position.y = 0.03
                 group.addChild(drift)
             }
@@ -1038,9 +1057,11 @@ enum SceneBuilder {
                 let height = rng.float(in: 0.3...0.7)
                 let rock = simpleMaterial(UIColor(red: 0.17, green: 0.15, blue: 0.15, alpha: 1),
                                           roughness: 1.0)
-                let spire = ModelEntity(
-                    mesh: .generateBox(width: 0.13, height: height, depth: 0.13, cornerRadius: 0.01),
-                    materials: [rock])
+                let spire = Prim.roundedBox(width: 0.13,
+                                            height: height,
+                                            depth: 0.13,
+                                            cornerRadius: 0.01,
+                                            material: rock)
                 spire.position.y = height / 2
                 spire.orientation = simd_quatf(angle: rng.float(in: 0...(2 * .pi)), axis: SIMD3(0, 1, 0)) *
                                     simd_quatf(angle: rng.float(in: -0.12...0.12), axis: SIMD3(0, 0, 1))
@@ -1052,16 +1073,16 @@ enum SceneBuilder {
                 material.emissiveColor = .init(color: theme.lavaColor)
                 material.emissiveIntensity = 2.2
                 material.roughness = 0.6
-                let pool = ModelEntity(
-                    mesh: .generateCylinder(height: 0.02, radius: rng.float(in: 0.09...0.2)),
-                    materials: [material])
+                let pool = Prim.cylinder(height: 0.02,
+                                         radius: rng.float(in: 0.09...0.2),
+                                         material: material)
                 pool.position.y = 0.02
                 group.addChild(pool)
-                let crust = ModelEntity(
-                    mesh: .generateSphere(radius: 0.07),
-                    materials: [simpleMaterial(UIColor(red: 0.16, green: 0.13, blue: 0.12, alpha: 1),
-                                               roughness: 1.0)])
-                crust.scale = SIMD3(1.5, 0.4, 1.3)
+                let crustMaterial = simpleMaterial(
+                    UIColor(red: 0.16, green: 0.13, blue: 0.12, alpha: 1),
+                    roughness: 1.0)
+                let crust = Prim.sphere(radius: 0.07, material: crustMaterial)
+                crust.scale *= SIMD3(1.5, 0.4, 1.3)
                 crust.position.y = 0.01
                 group.addChild(crust)
             } else {
@@ -1069,14 +1090,12 @@ enum SceneBuilder {
                 let height = rng.float(in: 0.22...0.45)
                 let charred = simpleMaterial(UIColor(red: 0.14, green: 0.11, blue: 0.10, alpha: 1),
                                              roughness: 1.0)
-                let trunk = ModelEntity(
-                    mesh: .generateCylinder(height: height, radius: 0.03),
-                    materials: [charred])
+                let trunk = Prim.cylinder(height: height, radius: 0.03, material: charred)
                 trunk.position.y = height / 2
                 group.addChild(trunk)
-                let branch = ModelEntity(
-                    mesh: .generateCylinder(height: height * 0.5, radius: 0.018),
-                    materials: [charred])
+                let branch = Prim.cylinder(height: height * 0.5,
+                                           radius: 0.018,
+                                           material: charred)
                 branch.position = SIMD3(0.05, height * 0.8, 0)
                 branch.orientation = simd_quatf(angle: 0.7, axis: SIMD3(0, 0, 1))
                 group.addChild(branch)
@@ -1086,25 +1105,24 @@ enum SceneBuilder {
                 // Cog on a stand: a hub with teeth around it.
                 let brass = simpleMaterial(theme.wallTopColor, roughness: 0.35, metallic: 0.8)
                 let radius = rng.float(in: 0.14...0.26)
-                let post = ModelEntity(
-                    mesh: .generateCylinder(height: 0.16, radius: 0.02),
-                    materials: [simpleMaterial(UIColor(white: 0.35, alpha: 1), roughness: 0.6)])
+                let postMaterial = simpleMaterial(UIColor(white: 0.35, alpha: 1),
+                                                  roughness: 0.6)
+                let post = Prim.cylinder(height: 0.16, radius: 0.02, material: postMaterial)
                 post.position.y = 0.08
                 group.addChild(post)
                 let cog = Entity()
                 cog.position.y = 0.16
                 cog.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0))
-                let disc = ModelEntity(
-                    mesh: .generateCylinder(height: 0.03, radius: radius),
-                    materials: [brass])
+                let disc = Prim.cylinder(height: 0.03, radius: radius, material: brass)
                 disc.orientation = simd_quatf(angle: .pi / 2, axis: SIMD3(1, 0, 0))
                 cog.addChild(disc)
                 for i in 0..<10 {
                     let angle = Float(i) * .pi / 5
-                    let tooth = ModelEntity(
-                        mesh: .generateBox(width: 0.05, height: 0.05, depth: 0.03,
-                                           cornerRadius: 0.008),
-                        materials: [brass])
+                    let tooth = Prim.roundedBox(width: 0.05,
+                                                height: 0.05,
+                                                depth: 0.03,
+                                                cornerRadius: 0.008,
+                                                material: brass)
                     tooth.position = SIMD3(cos(angle) * radius, sin(angle) * radius, 0)
                     tooth.orientation = simd_quatf(angle: angle, axis: SIMD3(0, 0, 1))
                     cog.addChild(tooth)
@@ -1115,14 +1133,15 @@ enum SceneBuilder {
                 let iron = simpleMaterial(UIColor(red: 0.30, green: 0.24, blue: 0.20, alpha: 1),
                                           roughness: 0.7, metallic: 0.4)
                 let height = rng.float(in: 0.22...0.4)
-                let drum = ModelEntity(
-                    mesh: .generateCylinder(height: height, radius: 0.11),
-                    materials: [iron])
+                let drum = Prim.cylinder(height: height, radius: 0.11, material: iron)
                 drum.position.y = height / 2
                 group.addChild(drum)
-                let pipe = ModelEntity(
-                    mesh: .generateCylinder(height: 0.22, radius: 0.026),
-                    materials: [simpleMaterial(theme.wallTopColor, roughness: 0.4, metallic: 0.7)])
+                let pipeMaterial = simpleMaterial(theme.wallTopColor,
+                                                  roughness: 0.4,
+                                                  metallic: 0.7)
+                let pipe = Prim.cylinder(height: 0.22,
+                                         radius: 0.026,
+                                         material: pipeMaterial)
                 pipe.position = SIMD3(0.05, height + 0.11, 0)
                 group.addChild(pipe)
             } else {
@@ -1131,10 +1150,11 @@ enum SceneBuilder {
                                           roughness: 0.95)
                 for i in 0..<2 {
                     let side = rng.float(in: 0.12...0.18)
-                    let crate = ModelEntity(
-                        mesh: .generateBox(width: side, height: side, depth: side,
-                                           cornerRadius: 0.006),
-                        materials: [wood])
+                    let crate = Prim.roundedBox(width: side,
+                                                height: side,
+                                                depth: side,
+                                                cornerRadius: 0.006,
+                                                material: wood)
                     crate.position = SIMD3(rng.float(in: -0.04...0.04), side * (Float(i) + 0.5),
                                            rng.float(in: -0.04...0.04))
                     crate.orientation = simd_quatf(angle: rng.float(in: 0...1.2),
@@ -1145,11 +1165,12 @@ enum SceneBuilder {
         case .storm:
             if rng.chance(0.4) {
                 // Wave-worn boulder
-                let rock = ModelEntity(
-                    mesh: .generateSphere(radius: rng.float(in: 0.1...0.24)),
-                    materials: [simpleMaterial(UIColor(red: 0.34, green: 0.37, blue: 0.40, alpha: 1),
-                                               roughness: 0.9)])
-                rock.scale = SIMD3(1.25, rng.float(in: 0.5...0.8), 1.1)
+                let rockMaterial = simpleMaterial(
+                    UIColor(red: 0.34, green: 0.37, blue: 0.40, alpha: 1),
+                    roughness: 0.9)
+                let rock = Prim.sphere(radius: rng.float(in: 0.1...0.24),
+                                       material: rockMaterial)
+                rock.scale *= SIMD3(1.25, rng.float(in: 0.5...0.8), 1.1)
                 rock.orientation = simd_quatf(angle: rng.float(in: 0...(2 * .pi)),
                                               axis: SIMD3(0, 1, 0))
                 rock.position.y = 0.04
@@ -1157,10 +1178,12 @@ enum SceneBuilder {
             } else if rng.chance(0.5) {
                 // Mooring post with a lantern on top
                 let height = rng.float(in: 0.3...0.55)
-                let post = ModelEntity(
-                    mesh: .generateCylinder(height: height, radius: 0.035),
-                    materials: [simpleMaterial(UIColor(red: 0.33, green: 0.27, blue: 0.22, alpha: 1),
-                                               roughness: 0.95)])
+                let postMaterial = simpleMaterial(
+                    UIColor(red: 0.33, green: 0.27, blue: 0.22, alpha: 1),
+                    roughness: 0.95)
+                let post = Prim.cylinder(height: height,
+                                         radius: 0.035,
+                                         material: postMaterial)
                 post.position.y = height / 2
                 post.orientation = simd_quatf(angle: rng.float(in: -0.1...0.1), axis: SIMD3(0, 0, 1))
                 group.addChild(post)
@@ -1169,17 +1192,20 @@ enum SceneBuilder {
                 glass.emissiveColor = .init(color: theme.accent)
                 glass.emissiveIntensity = 1.4
                 glass.roughness = 0.3
-                let lamp = ModelEntity(mesh: .generateSphere(radius: 0.035), materials: [glass])
+                let lamp = Prim.sphere(radius: 0.035, material: glass)
                 lamp.position.y = height + 0.02
                 group.addChild(lamp)
             } else {
                 // Tussock of salt grass
                 let color = UIColor(red: 0.42, green: 0.48, blue: 0.32, alpha: 1)
                 for i in 0..<5 {
-                    let blade = ModelEntity(
-                        mesh: .generateBox(width: 0.014, height: rng.float(in: 0.12...0.2),
-                                           depth: 0.01, cornerRadius: 0.005),
-                        materials: [simpleMaterial(color, roughness: 0.95)])
+                    let bladeMaterial = simpleMaterial(color,
+                                                       roughness: 0.95)
+                    let blade = Prim.roundedBox(width: 0.014,
+                                                height: rng.float(in: 0.12...0.2),
+                                                depth: 0.01,
+                                                cornerRadius: 0.005,
+                                                material: bladeMaterial)
                     blade.position = SIMD3(0, 0.07, 0)
                     let holder = Entity()
                     holder.orientation = simd_quatf(angle: Float(i) * 1.256, axis: SIMD3(0, 1, 0)) *
@@ -1192,10 +1218,12 @@ enum SceneBuilder {
         case .cosmos:
             if rng.chance(0.4) {
                 // Solar array on a mast
-                let mast = ModelEntity(
-                    mesh: .generateCylinder(height: 0.34, radius: 0.014),
-                    materials: [simpleMaterial(UIColor(white: 0.7, alpha: 1),
-                                               roughness: 0.3, metallic: 0.8)])
+                let mastMaterial = simpleMaterial(UIColor(white: 0.7, alpha: 1),
+                                                  roughness: 0.3,
+                                                  metallic: 0.8)
+                let mast = Prim.cylinder(height: 0.34,
+                                         radius: 0.014,
+                                         material: mastMaterial)
                 mast.position.y = 0.17
                 group.addChild(mast)
                 var panelMaterial = PhysicallyBasedMaterial()
@@ -1206,36 +1234,42 @@ enum SceneBuilder {
                 panelMaterial.roughness = 0.2
                 panelMaterial.metallic = 0.6
                 for side: Float in [-1, 1] {
-                    let panel = ModelEntity(
-                        mesh: .generateBox(width: 0.22, height: 0.008, depth: 0.13,
-                                           cornerRadius: 0.004),
-                        materials: [panelMaterial])
+                    let panel = Prim.roundedBox(width: 0.22,
+                                                height: 0.008,
+                                                depth: 0.13,
+                                                cornerRadius: 0.004,
+                                                material: panelMaterial)
                     panel.position = SIMD3(side * 0.13, 0.33, 0)
                     panel.orientation = simd_quatf(angle: side * 0.3, axis: SIMD3(0, 0, 1))
                     group.addChild(panel)
                 }
             } else if rng.chance(0.5) {
                 // Dish antenna
-                let stand = ModelEntity(
-                    mesh: .generateCylinder(height: 0.18, radius: 0.02),
-                    materials: [simpleMaterial(UIColor(white: 0.55, alpha: 1),
-                                               roughness: 0.35, metallic: 0.7)])
+                let standMaterial = simpleMaterial(UIColor(white: 0.55, alpha: 1),
+                                                   roughness: 0.35,
+                                                   metallic: 0.7)
+                let stand = Prim.cylinder(height: 0.18,
+                                          radius: 0.02,
+                                          material: standMaterial)
                 stand.position.y = 0.09
                 group.addChild(stand)
-                let dish = ModelEntity(
-                    mesh: .generateCone(height: 0.1, radius: rng.float(in: 0.11...0.17)),
-                    materials: [simpleMaterial(UIColor(white: 0.86, alpha: 1), roughness: 0.4)])
+                let dishMaterial = simpleMaterial(UIColor(white: 0.86, alpha: 1),
+                                                  roughness: 0.4)
+                let dish = Prim.cone(height: 0.1,
+                                     radius: rng.float(in: 0.11...0.17),
+                                     material: dishMaterial)
                 dish.position.y = 0.24
                 dish.orientation = simd_quatf(angle: .pi, axis: SIMD3(0, 0, 1)) *
                                    simd_quatf(angle: rng.float(in: -0.5...0.5), axis: SIMD3(1, 0, 0))
                 group.addChild(dish)
             } else {
                 // Drifting chunk of rock, lit from the station
-                let stone = ModelEntity(
-                    mesh: .generateSphere(radius: rng.float(in: 0.08...0.18)),
-                    materials: [simpleMaterial(UIColor(red: 0.26, green: 0.25, blue: 0.28, alpha: 1),
-                                               roughness: 1.0)])
-                stone.scale = SIMD3(1.2, rng.float(in: 0.6...0.9), 1.0)
+                let stoneMaterial = simpleMaterial(
+                    UIColor(red: 0.26, green: 0.25, blue: 0.28, alpha: 1),
+                    roughness: 1.0)
+                let stone = Prim.sphere(radius: rng.float(in: 0.08...0.18),
+                                        material: stoneMaterial)
+                stone.scale *= SIMD3(1.2, rng.float(in: 0.6...0.9), 1.0)
                 stone.orientation = simd_quatf(angle: rng.float(in: 0...(2 * .pi)),
                                                axis: SIMD3(0, 1, 0))
                 stone.position.y = rng.float(in: 0.05...0.3)
@@ -1252,9 +1286,9 @@ enum SceneBuilder {
             material.emissiveColor = .init(color: color)
             material.emissiveIntensity = 1.6
             material.roughness = 0.35
-            let crystal = ModelEntity(
-                mesh: .generateCone(height: height, radius: height * 0.2),
-                materials: [material])
+            let crystal = Prim.cone(height: height,
+                                    radius: height * 0.2,
+                                    material: material)
             crystal.position.y = height / 2
             crystal.orientation = simd_quatf(angle: rng.float(in: -0.15...0.15), axis: SIMD3(0, 0, 1))
             group.addChild(crystal)
@@ -1262,13 +1296,74 @@ enum SceneBuilder {
         return group
     }
 
+    /// Plain coloured material, from a cache keyed on how it looks.
+    ///
+    /// After the meshes, this is the most expensive thing about building a
+    /// hole: a `PhysicallyBasedMaterial` costs about half a millisecond to put
+    /// together, and a hole asks for one per prop. They are values with no
+    /// identity of their own, so one can be handed to any number of entities —
+    /// and a world paints everything it owns out of a handful of colours, so
+    /// nearly every request after the first few is for something already built.
+    /// The cache is never cleared: the next hole of the same world finds it
+    /// warm, which is exactly when it matters.
+    ///
+    /// The key is the colour rounded to a 64th per channel, so a tint mixed
+    /// with a random component still lands on a cached entry instead of
+    /// missing every time. A 64th is a sixteenth of the darkest step the eye
+    /// can pick out on a gradient, and the material is built from the rounded
+    /// colour, so two props that ask for the same shade always get the same
+    /// material — which is what lets the renderer batch them.
     static func simpleMaterial(_ color: UIColor, roughness: Float,
                                metallic: Float = 0) -> PhysicallyBasedMaterial {
+        guard let key = MaterialKey(color: color, roughness: roughness, metallic: metallic) else {
+            return makeMaterial(color, roughness: roughness, metallic: metallic)
+        }
+        if let cached = materialCache[key] { return cached }
+        let material = makeMaterial(key.color, roughness: key.roughnessValue,
+                                    metallic: key.metallicValue)
+        materialCache[key] = material
+        return material
+    }
+
+    private static var materialCache: [MaterialKey: PhysicallyBasedMaterial] = [:]
+
+    private static func makeMaterial(_ color: UIColor, roughness: Float,
+                                     metallic: Float) -> PhysicallyBasedMaterial {
         var material = PhysicallyBasedMaterial()
         material.baseColor = .init(tint: color)
         material.roughness = .init(floatLiteral: roughness)
         material.metallic = .init(floatLiteral: metallic)
         return material
+    }
+
+    /// A material's whole appearance, quantised, as something hashable.
+    private struct MaterialKey: Hashable {
+        private static let steps: CGFloat = 64
+
+        var red: UInt8, green: UInt8, blue: UInt8, alpha: UInt8
+        var roughness: UInt8, metallic: UInt8
+
+        /// Fails for a colour that cannot be read as RGBA — a pattern colour,
+        /// say. Those simply go uncached.
+        init?(color: UIColor, roughness: Float, metallic: Float) {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            guard color.getRed(&r, green: &g, blue: &b, alpha: &a) else { return nil }
+            func step(_ value: CGFloat) -> UInt8 {
+                UInt8(clamping: Int((value * Self.steps).rounded()))
+            }
+            red = step(r); green = step(g); blue = step(b); alpha = step(a)
+            self.roughness = step(CGFloat(roughness))
+            self.metallic = step(CGFloat(metallic))
+        }
+
+        private static func value(_ step: UInt8) -> CGFloat { CGFloat(step) / steps }
+
+        var color: UIColor {
+            UIColor(red: Self.value(red), green: Self.value(green),
+                    blue: Self.value(blue), alpha: Self.value(alpha))
+        }
+        var roughnessValue: Float { Float(Self.value(roughness)) }
+        var metallicValue: Float { Float(Self.value(metallic)) }
     }
 }
 
@@ -1307,6 +1402,28 @@ struct ThemeMaterials {
     /// Machined steel for gates and pendulum hardware.
     let metal: PhysicallyBasedMaterial
     let star: UnlitMaterial
+
+    /// The set for a world, built once and kept for as long as the app runs.
+    ///
+    /// Every material in here is a function of the theme alone, so each hole of
+    /// a world was building the same two dozen of them over again at about half
+    /// a millisecond each. Nothing is cached until all the textures are in
+    /// hand: a hole opened while its world is still being drawn in the
+    /// background would otherwise pin the plain-coloured fallbacks for the rest
+    /// of the session.
+    static func shared(for course: CourseType) -> ThemeMaterials {
+        if let cached = cache[course] { return cached }
+        let materials = ThemeMaterials(theme: course.theme, course: course)
+        if materials.hasEveryTexture { cache[course] = materials }
+        return materials
+    }
+
+    private static var cache: [CourseType: ThemeMaterials] = [:]
+
+    private var hasEveryTexture: Bool {
+        feltTexture != nil && sandTexture != nil && mudTexture != nil
+            && iceTexture != nil && groundTexture != nil
+    }
 
     init(theme: CourseTheme, course: CourseType) {
         self.theme = theme

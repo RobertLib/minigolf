@@ -847,16 +847,13 @@ enum ObstacleBuilder {
             let chord = simd_distance(from, to) + 0.005
             let theta = (Float(i) + 0.5) * step
             if i % 2 == 0 {
-                place(ModelEntity(mesh: .generateBox(width: halfWidth * 2,
-                                                     height: bandThickness,
-                                                     depth: chord * 0.55),
-                                  materials: [materials.beltBed]),
+                place(Prim.box(width: halfWidth * 2, height: bandThickness,
+                               depth: chord * 0.55, material: materials.beltBed),
                       theta: theta, lateral: 0)
             }
             for side: Float in [-1, 1] {
-                place(ModelEntity(mesh: .generateBox(width: railWidth, height: railHeight,
-                                                     depth: chord, cornerRadius: 0.006),
-                                  materials: [railMaterial]),
+                place(Prim.roundedBox(width: railWidth, height: railHeight, depth: chord,
+                                      cornerRadius: 0.006, material: railMaterial),
                       theta: theta, lateral: side * railOffset)
             }
         }
@@ -867,16 +864,13 @@ enum ObstacleBuilder {
         let lead: Float = 0.16
         for end: Float in [-1, 1] {
             let mid = end * (pitch / 2 + lead / 2)
-            let strip = ModelEntity(
-                mesh: .generateBox(width: halfWidth * 2, height: 0.004, depth: lead),
-                materials: [materials.beltBed])
+            let strip = Prim.box(width: halfWidth * 2, height: 0.004, depth: lead,
+                                 material: materials.beltBed)
             strip.position = SIMD3(0, 0.002, mid)
             group.addChild(strip)
             for side: Float in [-1, 1] {
-                let rail = ModelEntity(
-                    mesh: .generateBox(width: railWidth, height: railHeight, depth: lead,
-                                       cornerRadius: 0.006),
-                    materials: [railMaterial])
+                let rail = Prim.roundedBox(width: railWidth, height: railHeight, depth: lead,
+                                           cornerRadius: 0.006, material: railMaterial)
                 rail.position = SIMD3(side * railOffset, 0.006, mid)
                 group.addChild(rail)
             }
