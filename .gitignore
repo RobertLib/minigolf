@@ -23,3 +23,9 @@ DerivedData/
 AppStore/screenshots/
 AppStore/screenshots-captioned/
 AppStore/preview/
+
+# The downloaded originals the importer reads from — a few hundred megabytes,
+# and re-fetchable from the `download` URLs in Tools/music_sources.json. Only
+# the encoded tracks belong in the repo.
+Assets/music-src/
+__pycache__/

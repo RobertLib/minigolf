@@ -240,8 +240,20 @@ Zbývá udělat ručně v App Store Connect:
   kolejnice loopingu) mají jeden mesh na tvar a liší se jen škálou (`Prim`), materiály
   se cachují podle barvy a sada materiálů světa se drží od první jamky. Jamka se pak
   postaví za zlomek času, který stálo generovat pár set meshů a materiálů znovu.
+- Každý svět má vlastní playlist (`Resources/Music/*.m4a`) a menu má svůj; `ContentView`
+  podle fáze hry a aktuálního světa vybere svět a `MusicPlayer` mezi nimi přechází
+  křížovým prolnutím. Svět není jedna smyčka, ale tři až čtyři celé skladby — hrají se
+  po jedné, zamíchaně, a další nastupuje dřív, než ta předchozí dojde, protože jedna
+  smyčka se během jednoho patování slyší šestkrát a přestane být hudbou. Prolínají se
+  dva `AVAudioPlayerNode` krmené dekódovaným PCM bufferem: `AVAudioPlayer` neumí dvě
+  stopy překrýt a u AAC by na každém spoji udělal slyšitelnou díru, protože priming
+  a padding rámce enkodéru se do něj započítají.
 - Assety lze přegenerovat skripty ve složce `Tools/`:
-  `python3 Tools/gen_sounds.py` (zvuky a hudba, čistá sinusová syntéza),
+  `python3 Tools/gen_sounds.py` (zvukové efekty, čistá sinusová syntéza),
+  `python3 Tools/import_music.py` (hudba — nic se nesyntetizuje: stažené CC0/CC-BY
+  skladby se podle `Tools/music_sources.json` sestříhají, srovnají hlasitostí,
+  zaenkódují přes `afconvert` do AAC a přepíše se z nich atribuce, kterou hra
+  ukazuje v Nastavení),
   `swift Tools/gen_icon.swift <cesta k PNG>` (ikona aplikace),
   `Tools/appstore_media.sh` (screenshoty a App Preview do `AppStore/`, hraje si
   to samo v simulátoru přes DEBUG přepínače) a `Tools/appstore_captions.sh`

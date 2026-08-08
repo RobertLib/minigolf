@@ -123,6 +123,17 @@ final class GameController {
         LevelLibrary.holeCount(course)
     }
 
+    /// The music loop belonging to whatever is on screen. Playing a world starts
+    /// at its hole list, so the theme has already introduced itself by the time
+    /// the first shot is taken.
+    var musicTrack: MusicTrack {
+        switch phase {
+        case .playing: return MusicTrack(course: course)
+        case .holeSelect: return MusicTrack(course: browsingCourse)
+        case .menu, .courseSelect, .clubhouse, .finalRating: return .menu
+        }
+    }
+
     var isPractice: Bool { mode == .practice }
     var isDaily: Bool { mode == .daily }
     /// Single-hole modes: no lives, no course total, retry as often as you like.
@@ -188,6 +199,32 @@ final class GameController {
                 record.stars = 2
                 progress.records[course.rawValue] = record
             }
+
+            // The clubhouse reads its career tiles, its trophy count and every
+            // ball unlock out of `stats`, so the course records alone would
+            // leave it showing "0 holes played" next to "108/108 cleared".
+            // These numbers follow from the records above: two thirds of the
+            // holes sit a shot under par, and every course best is par − 2.
+            stats.holesCompleted = 168
+            stats.totalStrokes = 592
+            stats.holeInOnes = 6
+            stats.birdiesOrBetter = 72
+            stats.penalties = 21
+            stats.coursesFinished = CourseType.allCases.count
+            stats.bestParStreak = 11
+            stats.bestCourseUnderPar = 2
+            stats.cleanCourses = 3
+            stats.dayStreak = 6
+            stats.bestDayStreak = 9
+            stats.daysPlayed = 24
+            // Yesterday, not today — the streak still reads as live, but the
+            // daily challenge stays unplayed so `-daily` opens on a playable
+            // hole instead of on today's result.
+            stats.lastDailyDay = GameDay.key(Date().addingTimeInterval(-86400))
+            stats.dailyStreak = 6
+            stats.bestDailyStreak = 9
+            stats.dailiesCompleted = 14
+            stats.seenSkins = Set(BallSkin.allCases.map(\.rawValue))
         }
 
         if args.contains("-finalrating") {
@@ -223,7 +260,6 @@ final class GameController {
     func goToMenu() {
         overlay = .none
         phase = .menu
-        SoundManager.shared.playMusic()
         prewarmMenuTextures()
     }
 

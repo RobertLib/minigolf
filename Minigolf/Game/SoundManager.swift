@@ -2,8 +2,9 @@
 //  SoundManager.swift
 //  Minigolf
 //
-//  Lightweight AVAudioPlayer based playback for short effects plus a looping
-//  ambient music track. All sound files are small generated WAVs in the bundle.
+//  Lightweight AVAudioPlayer based playback for short effects. The music is a
+//  different problem — looping and crossfading full tracks — and lives in
+//  MusicPlayer; this type owns it and forwards the settings toggle.
 //
 
 import Foundation
@@ -66,10 +67,14 @@ final class SoundManager {
     /// Building an `AVAudioPlayer` parses the file and spins up an audio unit,
     /// and `prepareToPlay` allocates its buffers — work worth doing once rather
     /// than on the frame that wants the sound. Every voice is therefore built and
-    /// primed up front, the music track included.
+    /// primed up front.
     private var voices: [SoundEffect: [AVAudioPlayer]] = [:]
     private var nextVoice: [SoundEffect: Int] = [:]
-    private var musicPlayer: AVAudioPlayer?
+
+    /// Built on `queue` during preload, and only ever touched there. The queue
+    /// is serial and preload is the first thing on it, so anything that asks for
+    /// music later finds it ready.
+    private var music: MusicPlayer?
 
     /// The settings toggles, mirrored in memory. `soundEnabled` is read on every
     /// single effect — several times a frame while a ball rattles along the
@@ -90,7 +95,7 @@ final class SoundManager {
         set {
             musicOn = newValue
             UserDefaults.standard.set(newValue, forKey: "minigolf.music")
-            if newValue { playMusic() } else { stopMusic() }
+            queue.async { [self] in music?.setEnabled(newValue) }
         }
     }
 
@@ -98,11 +103,15 @@ final class SoundManager {
         let defaults = UserDefaults.standard
         soundOn = defaults.object(forKey: "minigolf.sound") as? Bool ?? true
         musicOn = defaults.object(forKey: "minigolf.music") as? Bool ?? true
+        let startEnabled = musicOn
 
         queue.async { [self] in
             try? AVAudioSession.sharedInstance().setCategory(.ambient, options: [.mixWithOthers])
             try? AVAudioSession.sharedInstance().setActive(true)
             preload()
+            let player = MusicPlayer(queue: queue)
+            music = player
+            player.setEnabled(startEnabled)
         }
     }
 
@@ -120,14 +129,6 @@ final class SoundManager {
             guard !players.isEmpty else { continue }
             voices[effect] = players
             nextVoice[effect] = 0
-        }
-
-        if let url = Bundle.main.url(forResource: "music", withExtension: "wav"),
-           let player = try? AVAudioPlayer(contentsOf: url) {
-            player.numberOfLoops = -1
-            player.volume = 0.22
-            player.prepareToPlay()
-            musicPlayer = player
         }
     }
 
@@ -150,20 +151,10 @@ final class SoundManager {
         }
     }
 
-    func playMusic() {
-        guard musicOn else { return }
-        queue.async { [self] in
-            guard let musicPlayer, !musicPlayer.isPlaying else { return }
-            musicPlayer.play()
-        }
-    }
-
-    /// Pauses rather than discards: the track is a 16-second loop kept primed for
-    /// the whole session, so toggling music back on costs nothing and does not
-    /// re-parse the file.
-    func stopMusic() {
-        queue.async { [self] in
-            musicPlayer?.pause()
-        }
+    /// Puts `track` on, crossfading from whatever was playing. Safe to call with
+    /// the track that is already up — it is then a no-op, so a screen can simply
+    /// declare what it wants to hear.
+    func playMusic(_ track: MusicTrack) {
+        queue.async { [self] in music?.play(track) }
     }
 }

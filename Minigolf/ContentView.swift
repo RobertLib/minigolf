@@ -37,8 +37,15 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.35), value: controller.phase)
         .statusBarHidden()
         .preferredColorScheme(.dark)
+        // One place decides what should be playing, rather than every screen
+        // remembering to ask for it. `musicTrack` is derived from the phase and
+        // the current world, so entering a world crossfades into its theme and
+        // backing out to the menus crossfades away from it.
+        .onChange(of: controller.musicTrack) { _, track in
+            SoundManager.shared.playMusic(track)
+        }
         .onAppear {
-            SoundManager.shared.playMusic()
+            SoundManager.shared.playMusic(controller.musicTrack)
             controller.prewarmMenuTextures()
         }
     }

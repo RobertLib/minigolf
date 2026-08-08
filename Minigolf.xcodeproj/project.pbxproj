@@ -10,9 +10,22 @@
 		D479ACC1301F07A300837834 /* Minigolf.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Minigolf.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		D479ACD1301F07A400837834 /* Exceptions for "Minigolf" folder in "Minigolf" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Resources/Music/CREDITS.md,
+			);
+			target = D479ACC0301F07A300837834 /* Minigolf */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		D479ACC3301F07A300837834 /* Minigolf */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				D479ACD1301F07A400837834 /* Exceptions for "Minigolf" folder in "Minigolf" target */,
+			);
 			path = Minigolf;
 			sourceTree = "<group>";
 		};

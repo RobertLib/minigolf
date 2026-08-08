@@ -14,7 +14,7 @@ Screenshots* (přepínač jazyka nahoře, každá lokalizace zvlášť).
 | App Preview iPhone 6.9" | `preview/<jazyk>/iphone-6.9.mp4` | 1290 × 2796, 30 fps, 26,5 s | 1 |
 | App Preview iPad 13" | `preview/<jazyk>/ipad-13.mp4` | 1200 × 1600, 30 fps, 26,6 s | 1 |
 
-Dohromady 85 MB screenshotů, 78 MB varianty s popisky a 134 MB videí.
+Dohromady 79 MB screenshotů, 80 MB varianty s popisky a 136 MB videí.
 
 ```bash
 Tools/appstore_media.sh              # screenshoty i videa (~20 min)
@@ -90,7 +90,7 @@ Pořadí je zároveň pořadím nahrávání. Argumenty se dají zadat i ručně
 | `-autostart <svět> <jamka>` | skočí rovnou do jamky |
 | `-aimdemo [0…1]` | drží míření na jamku, aby šla naváděcí čára vyfotit |
 | `-zoom <0,7…1,8>` | zafixuje pinch zoom kamery, aby se do záběru vešla celá dráha |
-| `-unlockall` | dosadí věrohodný postup pro záběry menu (na disk se nezapisuje) |
+| `-unlockall` | dosadí věrohodný postup i kariérní statistiky pro záběry menu (na disk se nezapisuje) |
 | `-courseselect`, `-clubhouse`, `-daily`, `-finalrating`, `-holeselect <svět>` | otevře danou obrazovku |
 | `-autoshot`, `-autowin`, `-autoadvance` | hraje samo — použité pro video |
 

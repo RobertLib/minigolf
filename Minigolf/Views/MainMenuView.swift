@@ -263,7 +263,7 @@ struct SettingsView: View {
                     Text(aimGuide.detail)
                 }
 
-                Section("Audio") {
+                Section {
                     Toggle(isOn: $soundOn) {
                         Label("Sound Effects", systemImage: "speaker.wave.2.fill")
                     }
@@ -276,6 +276,23 @@ struct SettingsView: View {
                     .onChange(of: musicOn) { _, value in
                         SoundManager.shared.musicEnabled = value
                     }
+                    // Not decoration: part of the soundtrack is CC-BY, and the
+                    // credit is a condition of the licence rather than a
+                    // courtesy. It has to name the works as well as the people,
+                    // and be somewhere a player can actually reach — which is
+                    // why it is a screen here and not a line in the store
+                    // listing.
+                    NavigationLink {
+                        MusicCreditsView()
+                    } label: {
+                        Label("Music Credits", systemImage: "text.badge.star")
+                    }
+                } header: {
+                    Text("Audio")
+                } footer: {
+                    // No licence version in the sentence: the tracks are under
+                    // several, and each row states its own.
+                    Text("Music by \(MusicCredit.authorList), used under Creative Commons licences.")
                 }
                 Section("Feedback") {
                     Toggle(isOn: $hapticsOn) {

@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Generate all game sound effects + ambient music loop as WAV files."""
+"""Generate the game's short sound effects as WAV files.
+
+The music is a separate job and is not synthesised at all — see
+`import_music.py`, which turns downloaded tracks into the per-world playlists
+under `Resources/Music`.
+"""
 import math
 import random
 import struct
@@ -35,12 +40,10 @@ def silence(dur, sr=44100):
     return [0.0] * int(dur * sr)
 
 
-def add(base, extra, offset=0, gain=1.0, wrap=False):
+def add(base, extra, offset=0, gain=1.0):
     for i, s in enumerate(extra):
         j = offset + i
-        if wrap:
-            j %= len(base)
-        elif j >= len(base):
+        if j >= len(base):
             break
         base[j] += s * gain
     return base
@@ -204,54 +207,7 @@ for k, midi in enumerate([69, 65, 62, 57]):  # A4 F4 D4 A3
         int(0.3 * k * SR), 0.7)
 write_wav("gameover.wav", go, peak=0.65)
 
-# --- music: gentle 16s pad loop (Cmaj7 -> Am7 -> Fmaj7 -> G6)
-MSR = 32000
-total = 16.0
-music = [0.0] * int(total * MSR)
-chords = [
-    [48, 55, 64, 71],  # C  G  E  B
-    [45, 52, 60, 67],  # A  E  C  G
-    [41, 48, 57, 64],  # F  C  A  E
-    [43, 50, 59, 64],  # G  D  B  E
-]
-
-
-def pad_note(freq, dur, sr):
-    n = int(dur * sr)
-    out = []
-    for i in range(n):
-        t = i / sr
-        a = min(1.0, t / 1.2)
-        r = min(1.0, (dur - t) / 1.4)
-        env = a * r
-        v = (math.sin(2 * math.pi * freq * t)
-             + 0.35 * math.sin(2 * math.pi * freq * 2 * t)
-             + 0.12 * math.sin(2 * math.pi * freq * 3.01 * t))
-        # slow shimmer
-        v *= 1 + 0.08 * math.sin(2 * math.pi * 0.7 * t + freq)
-        out.append(v * env)
-    return out
-
-
-for c, chord in enumerate(chords):
-    start = int(c * 4.0 * MSR)
-    for midi in chord:
-        f = 440 * 2 ** ((midi - 69) / 12)
-        add(music, pad_note(f, 4.6, MSR), start, 0.16, wrap=True)
-
-# sparse pentatonic bells
-bell_times = [1.0, 3.2, 5.5, 7.4, 9.0, 11.3, 13.6, 15.2]
-bell_notes = [84, 79, 76, 81, 74, 79, 84, 76]
-for bt, midi in zip(bell_times, bell_notes):
-    f = 440 * 2 ** ((midi - 69) / 12)
-    note = tone(f, 1.6, sr=MSR, attack=0.005, decay=1.1,
-                harmonics=[(1, 1.0), (2, 0.25)])
-    add(music, note, int(bt * MSR), 0.10, wrap=True)
-
-write_wav("music.wav", music, sr=MSR, peak=0.6)
-
-# --- loop: doppler whoosh for a ball riding round the ring. Appended after the
-# music so every sound above keeps its own slice of the seeded noise stream.
+# --- loop: doppler whoosh for a ball riding round the ring
 n = int(0.55 * SR)
 loop = []
 for i in range(n):
