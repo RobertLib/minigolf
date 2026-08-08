@@ -285,6 +285,8 @@ struct BuiltScene {
     var windZones: [WindZone]
     /// The world's characters, walked by the coordinator every frame.
     var critters: [Critter]
+    /// The gallery around the hole, walked by the coordinator the same way.
+    var spectators: [Spectator]
     var bonusStar: BonusStar?
     /// Footprint of the whole course: every floor patch (hazard gaps included)
     /// plus the ramps that bridge them.
@@ -374,7 +376,13 @@ enum SceneBuilder {
             bonusStar = BonusStar(position: position, entity: entity)
         }
 
-        buildDecorations(level: level, theme: theme, into: root)
+        // People first, props second: the gallery is placed where a hole reads
+        // best, and the decorations are then planted around wherever it ended
+        // up rather than through it.
+        var spectators: [Spectator] = []
+        let gallery = Spectators.build(level: level, theme: theme, into: root,
+                                       spectators: &spectators)
+        buildDecorations(level: level, theme: theme, into: root, occupied: gallery)
         Scenery.buildWeather(level: level, theme: theme, into: root,
                              animated: &outputs.animated)
 
@@ -399,6 +407,7 @@ enum SceneBuilder {
             magnets: outputs.magnets,
             windZones: outputs.windZones,
             critters: outputs.critters,
+            spectators: spectators,
             bonusStar: bonusStar,
             floorRects: level.floors.map(\.rect) + rampFootprints(of: level),
             bumperNames: outputs.bumperNames,
@@ -805,14 +814,17 @@ enum SceneBuilder {
 
     // MARK: Decorations
 
-    private static func buildDecorations(level: LevelDefinition, theme: CourseTheme, into root: Entity) {
+    /// `occupied` is where the gallery is already standing: a prop keeps the
+    /// same distance from a person as it does from another prop.
+    private static func buildDecorations(level: LevelDefinition, theme: CourseTheme,
+                                         into root: Entity, occupied: [SIMD2<Float>] = []) {
         var rng = SplitMix64(seed: UInt64(level.course.order * 100 + level.number))
         let bounds = level.bounds
         // Nothing is planted on the paving, so the apron reads as a swept path
         // rather than as ground that happens to be a different colour.
         let noGo = level.floors.map { $0.rect.expanded(by: 0.32) }
             + [bounds.expanded(by: Scenery.apronWidth + 0.12)]
-        var placed: [SIMD2<Float>] = []
+        var placed: [SIMD2<Float>] = occupied
 
         /// One prop, if the spot is free. Props further out are scaled up: the
         /// band nearest the boards is what the player looks past all game, so

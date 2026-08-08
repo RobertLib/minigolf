@@ -314,6 +314,9 @@ final class GameSceneCoordinator {
         for critter in built.critters {
             critter.update(time: elapsed, dt: dt)
         }
+        for spectator in built.spectators {
+            spectator.update(time: elapsed, dt: dt)
+        }
 
         let ball = built.ball
         let travelled = ball.position - lastBallPosition
@@ -755,6 +758,9 @@ final class GameSceneCoordinator {
         SoundManager.shared.play(.hole)
         Haptics.shared.success()
         spawnConfetti(at: built.holePosition)
+        for spectator in built.spectators {
+            spectator.celebrate()
+        }
 
         // The drop plays out over the best part of a second, and the pause
         // button is live for all of it. Whichever hole was on screen when the
@@ -1431,6 +1437,9 @@ final class GameSceneCoordinator {
         star.entity.removeFromParent()
         SoundManager.shared.play(.star, volume: 0.9)
         Haptics.shared.success()
+        for spectator in built.spectators {
+            spectator.celebrate()
+        }
         controller?.collectBonusStar()
     }
 

@@ -296,6 +296,9 @@ final class GameController {
     private func prewarmTextures(for courses: [CourseType]) {
         Prim.prewarm()
         Scenery.prewarmSky()
+        for course in courses {
+            Spectators.prewarm(course: course)
+        }
         Task {
             for course in courses {
                 await TextureFactory.prewarm(course: course)
