@@ -85,7 +85,11 @@ private struct GameSceneView: View {
     var body: some View {
         GeometryReader { proxy in
             RealityView { content in
-                coordinator.build(content: &content)
+                // Built before the scene is touched: a static collision mesh can
+                // only be generated off the main actor, and awaiting one with the
+                // content already in hand would hold it across the suspension.
+                let floorShapes = await SceneBuilder.floorShapes(of: coordinator.level)
+                coordinator.build(content: &content, floorShapes: floorShapes)
                 coordinator.viewSizeChanged(size: proxy.size)
             }
             .onChange(of: proxy.size) { _, newSize in

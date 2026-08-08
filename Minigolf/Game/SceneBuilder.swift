@@ -292,7 +292,8 @@ struct BuiltScene {
 
 enum SceneBuilder {
 
-    static func build(level: LevelDefinition, skin: BallSkin = .classic) -> BuiltScene {
+    static func build(level: LevelDefinition, skin: BallSkin = .classic,
+                      floorShapes: [Float: ShapeResource] = [:]) -> BuiltScene {
         let theme = level.course.theme
         let root = Entity()
         root.name = "levelRoot"
@@ -325,8 +326,12 @@ enum SceneBuilder {
                     kind: patch.kind == .lava ? .lava : .water))
             }
         }
-        for slab in floorColliders(for: level) {
-            addFloorCollider(rect: slab.rect, y: slab.y, into: root)
+        for y in floorHeights(of: level) {
+            if let shape = floorShapes[y] {
+                addFloorSurface(shape, into: root)
+            } else if let rect = floorFallback(for: level, at: y) {
+                addFloorCollider(rect: rect, y: y, into: root)
+            }
         }
 
         // Walls
@@ -425,60 +430,104 @@ enum SceneBuilder {
 
     // MARK: Floors, sand, water, walls
 
-    /// Where two floor slabs butt together, the box edge of the one being entered
-    /// sits right at playing height. The solver sees the ball closing on it and
-    /// pushes back along the edge normal, which launches the ball instead of
-    /// letting it roll across. So collision is not built per patch: each height
-    /// becomes a single slab where that is possible, and where it is not — holes
-    /// whose gaps have to stay real holes — the patches are cut into lengthwise
-    /// bands instead, leaving seams only alongside the line of play.
-    private static func floorColliders(for level: LevelDefinition) -> [(rect: GroundRect, y: Float)] {
-        let greens = level.floors.filter { $0.kind == .green }
-        let hazards = level.floors.filter { $0.kind.isHazard }.map(\.rect)
-        var slabs: [(rect: GroundRect, y: Float)] = []
+    /// The greens at one height, as raw triangles rather than a pile of slabs.
+    ///
+    /// A green is rarely one rectangle — planks over water, wings off the side of
+    /// a lane — and tiling it with boxes leaves the rim of one box standing at
+    /// playing height in the middle of the surface. The solver opens a contact
+    /// with anything within a couple of centimetres of the ball, so it answers
+    /// that rim from a good four centimetres away and along its edge: the ball is
+    /// braked and thrown a little into the air by a kerb nobody can see. No
+    /// arrangement of boxes escapes it — overlapping them only moves the rim —
+    /// so the collider is built as one surface instead, with the patches welded
+    /// together and walls only around the outside, where a rim is the real edge
+    /// of the platform and stopping there is the point.
+    ///
+    /// The patches are cut on all their own X and Z lines and each cell of that
+    /// grid is kept if it lies on a green, which welds overlaps and butt joints
+    /// alike and leaves the gaps as real gaps.
+    static func floorMesh(of level: LevelDefinition, at y: Float) -> (positions: [SIMD3<Float>],
+                                                                     indices: [UInt16]) {
+        let rects = level.floors.filter { $0.kind == .green && $0.y == y }.map(\.rect)
+        let xs = Set(rects.flatMap { [$0.minX, $0.maxX] }).sorted()
+        let zs = Set(rects.flatMap { [$0.minZ, $0.maxZ] }).sorted()
+        // Same underside the drawn slabs have, so the sides line up with the felt.
+        let floorBottom: Float = -0.06
 
-        for y in Set(greens.map(\.y)).sorted() {
-            let group = greens.filter { $0.y == y }
-            guard var merged = group.first?.rect else { continue }
-            for patch in group.dropFirst() { merged = merged.union(patch.rect) }
-
-            let wouldSwallow = hazards.contains { overlaps($0, merged) }
-                || greens.contains { $0.y != y && overlaps($0.rect, merged) }
-            if wouldSwallow {
-                slabs.append(contentsOf: lengthwiseBands(of: group).map { (rect: $0, y: y) })
-            } else {
-                slabs.append((rect: merged, y: y))
-            }
+        func isGreen(_ col: Int, _ row: Int) -> Bool {
+            guard xs.indices.contains(col), xs.indices.contains(col + 1),
+                  zs.indices.contains(row), zs.indices.contains(row + 1) else { return false }
+            let mid = SIMD2((xs[col] + xs[col + 1]) / 2, (zs[row] + zs[row + 1]) / 2)
+            return rects.contains { $0.contains(mid) }
         }
-        return slabs
-    }
 
-    /// Splits patches into bands between their X boundaries and fuses each band's
-    /// contiguous Z runs. A bridge across water then shares one uninterrupted
-    /// slab with the greens at both ends.
-    private static func lengthwiseBands(of group: [FloorPatch]) -> [GroundRect] {
-        let cuts = Set(group.flatMap { [$0.rect.minX, $0.rect.maxX] }).sorted()
-        var bands: [GroundRect] = []
+        var positions: [SIMD3<Float>] = []
+        var indices: [UInt16] = []
+        // Quads are wound counter-clockwise seen from outside the solid.
+        func quad(_ corners: [SIMD3<Float>]) {
+            let base = UInt16(positions.count)
+            positions.append(contentsOf: corners)
+            indices.append(contentsOf: [base, base + 1, base + 2, base, base + 2, base + 3])
+        }
 
-        for (x0, x1) in zip(cuts, cuts.dropFirst()) where x1 - x0 > 0.0001 {
-            let mid = (x0 + x1) / 2
-            let spans = group
-                .filter { $0.rect.minX < mid && mid < $0.rect.maxX }
-                .map { ($0.rect.minZ, $0.rect.maxZ) }
-                .sorted { $0.0 < $1.0 }
-
-            var run: (Float, Float)?
-            for span in spans {
-                if let open = run, span.0 <= open.1 + 0.0001 {
-                    run = (open.0, max(open.1, span.1))
-                } else {
-                    if let open = run { bands.append(GroundRect(x0: x0, x1: x1, z0: open.0, z1: open.1)) }
-                    run = span
+        for col in 0..<max(0, xs.count - 1) {
+            for row in 0..<max(0, zs.count - 1) where isGreen(col, row) {
+                let (x0, x1) = (xs[col], xs[col + 1])
+                let (z0, z1) = (zs[row], zs[row + 1])
+                quad([SIMD3(x0, y, z1), SIMD3(x1, y, z1), SIMD3(x1, y, z0), SIMD3(x0, y, z0)])
+                quad([SIMD3(x0, floorBottom, z0), SIMD3(x1, floorBottom, z0),
+                      SIMD3(x1, floorBottom, z1), SIMD3(x0, floorBottom, z1)])
+                // Sides only where the green really ends; a shared edge is welded.
+                if !isGreen(col - 1, row) {
+                    quad([SIMD3(x0, y, z0), SIMD3(x0, y, z1),
+                          SIMD3(x0, floorBottom, z1), SIMD3(x0, floorBottom, z0)])
+                }
+                if !isGreen(col + 1, row) {
+                    quad([SIMD3(x1, y, z1), SIMD3(x1, y, z0),
+                          SIMD3(x1, floorBottom, z0), SIMD3(x1, floorBottom, z1)])
+                }
+                if !isGreen(col, row - 1) {
+                    quad([SIMD3(x1, y, z0), SIMD3(x0, y, z0),
+                          SIMD3(x0, floorBottom, z0), SIMD3(x1, floorBottom, z0)])
+                }
+                if !isGreen(col, row + 1) {
+                    quad([SIMD3(x0, y, z1), SIMD3(x1, y, z1),
+                          SIMD3(x1, floorBottom, z1), SIMD3(x0, floorBottom, z1)])
                 }
             }
-            if let open = run { bands.append(GroundRect(x0: x0, x1: x1, z0: open.0, z1: open.1)) }
         }
-        return bands
+        return (positions, indices)
+    }
+
+    /// Heights the level has a green at, low to high.
+    static func floorHeights(of level: LevelDefinition) -> [Float] {
+        Set(level.floors.filter { $0.kind == .green }.map(\.y)).sorted()
+    }
+
+    /// Collision surfaces for every floor height. Static meshes are only built
+    /// off the main actor, which is why the scene is handed them ready-made; a
+    /// height that fails to build falls back to the slab boxes below.
+    static func floorShapes(of level: LevelDefinition) async -> [Float: ShapeResource] {
+        var shapes: [Float: ShapeResource] = [:]
+        for y in floorHeights(of: level) {
+            let mesh = floorMesh(of: level, at: y)
+            guard !mesh.indices.isEmpty,
+                  let shape = try? await ShapeResource.generateStaticMesh(
+                    positions: mesh.positions, faceIndices: mesh.indices)
+            else { continue }
+            shapes[y] = shape
+        }
+        return shapes
+    }
+
+    /// Fallback when a height's mesh could not be built: one box over the whole
+    /// green at that height, which keeps the hole playable at the cost of paving
+    /// over its gaps.
+    private static func floorFallback(for level: LevelDefinition, at y: Float) -> GroundRect? {
+        let rects = level.floors.filter { $0.kind == .green && $0.y == y }.map(\.rect)
+        guard var merged = rects.first else { return nil }
+        for rect in rects.dropFirst() { merged = merged.union(rect) }
+        return merged
     }
 
     /// A ramp is the only floor a level owns that is not a `FloorPatch`, and the
@@ -495,9 +544,15 @@ enum SceneBuilder {
         }
     }
 
-    /// Strict overlap: rectangles that merely share an edge do not count.
-    private static func overlaps(_ a: GroundRect, _ b: GroundRect) -> Bool {
-        a.minX < b.maxX && b.minX < a.maxX && a.minZ < b.maxZ && b.minZ < a.maxZ
+    /// The welded collision surface for one height. Its triangles are already in
+    /// level coordinates, so the entity itself stays at the origin.
+    private static func addFloorSurface(_ shape: ShapeResource, into root: Entity) {
+        let entity = Entity()
+        entity.name = "floorCollision"
+        entity.components.set(CollisionComponent(shapes: [shape]))
+        entity.components.set(PhysicsBodyComponent(
+            massProperties: .default, material: GamePhysics.floorMaterial, mode: .static))
+        root.addChild(entity)
     }
 
     private static func addFloorCollider(rect: GroundRect, y: Float, into root: Entity) {

@@ -458,9 +458,14 @@ enum ObstacleBuilder {
         let downhill = spin.act(SIMD3<Float>(0, -sin(angle), cos(angle)))
         // At the top the ball rides a hair below the upper green — its centre sits
         // square to the slope, not to the world — and clips that green's leading
-        // edge head-on. A few millimetres of lift carries it clear; the ball drops
-        // the same few millimetres onto the plateau instead.
-        let lift: Float = 0.005
+        // edge head-on, which reads as a shove from nothing at the very moment the
+        // climb should be paying off. The lift has to carry the ball past the reach
+        // of that edge rather than merely over it: the solver answers anything
+        // within about two centimetres of the ball, so a few millimetres left the
+        // edge well inside the window. The ball drops the same lift onto the
+        // plateau instead — a plop at the crest, which is what a ramp should feel
+        // like anyway.
+        let lift: Float = 0.02
         // Surface midpoint (shifted for the buried tail) minus half the thickness.
         let surfaceMid = SIMD3(center.x, rise / 2 + lift, center.y) + downhill * (buried / 2)
         slab.position = surfaceMid - normal * (thickness / 2)
@@ -654,9 +659,13 @@ enum ObstacleBuilder {
         kinematicPhysics(gate, shape: .generateBox(width: size.x, height: height, depth: size.y))
         root.addChild(gate)
 
-        // Sink far enough that the crown clears the felt when open.
+        // Sink the crown a good way under the felt, not just below it. The solver
+        // opens a contact with anything within about two centimetres of the ball,
+        // so a bar parked just under the surface still trips a ball rolling over
+        // the spot — an obstacle the player cannot see and cannot time. Out of
+        // reach means the whole slab thickness plus a margin.
         animated.append(AnimatedObstacle(
-            kind: .gate(base: base, drop: height + 0.02, period: period, phase: phase),
+            kind: .gate(base: base, drop: height + 0.06, period: period, phase: phase),
             entity: gate))
     }
 

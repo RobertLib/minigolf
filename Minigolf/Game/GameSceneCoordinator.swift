@@ -205,10 +205,13 @@ final class GameSceneCoordinator {
 
     // MARK: - Scene construction
 
-    func build(content: inout RealityViewCameraContent) {
+    /// `floorShapes` are the welded floor colliders, built off the main actor
+    /// before the scene is assembled (see `SceneBuilder.floorShapes`).
+    func build(content: inout RealityViewCameraContent,
+               floorShapes: [Float: ShapeResource] = [:]) {
         content.camera = .virtual
 
-        let built = SceneBuilder.build(level: level, skin: skin)
+        let built = SceneBuilder.build(level: level, skin: skin, floorShapes: floorShapes)
         self.built = built
         content.add(built.root)
 
