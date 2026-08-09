@@ -233,14 +233,11 @@ enum ObstacleBuilder {
 
         // Gate blocks on both sides of the opening.
         for side: Float in [-1, 1] {
-            let block = ModelEntity(
-                mesh: .generateBox(width: blockWidth, height: blockHeight,
-                                   depth: 0.16, cornerRadius: 0.01),
-                materials: [wallMaterial]
-            )
+            let block = Prim.roundedBox(width: blockWidth, height: blockHeight,
+                                        depth: 0.16, cornerRadius: 0.01, material: wallMaterial)
             block.name = "wall"
             block.position = SIMD3(side * (gapHalf + blockWidth / 2), blockHeight / 2, 0)
-            staticPhysics(block, shape: .generateBox(width: blockWidth, height: blockHeight, depth: 0.16))
+            staticPhysics(block, shape: Prim.boxShape(width: blockWidth, height: blockHeight, depth: 0.16))
             group.addChild(block)
         }
 
@@ -286,15 +283,13 @@ enum ObstacleBuilder {
 
         let bladeMaterial = SceneBuilder.simpleMaterial(theme.accent, roughness: 0.6)
         for i in 0..<4 {
-            let blade = ModelEntity(
-                mesh: .generateBox(width: 0.05, height: 0.3, depth: 0.018, cornerRadius: 0.008),
-                materials: [bladeMaterial]
-            )
+            let blade = Prim.roundedBox(width: 0.05, height: 0.3, depth: 0.018,
+                                        cornerRadius: 0.008, material: bladeMaterial)
             blade.name = "wall"
             let holder = Entity()
             holder.orientation = simd_quatf(angle: Float(i) * .pi / 2, axis: SIMD3(0, 0, 1))
             blade.position = SIMD3(0, 0.165, 0)
-            kinematicPhysics(blade, shape: .generateBox(width: 0.05, height: 0.3, depth: 0.018))
+            kinematicPhysics(blade, shape: Prim.boxShape(width: 0.05, height: 0.3, depth: 0.018))
             holder.addChild(blade)
             bladesRoot.addChild(holder)
         }
@@ -353,14 +348,12 @@ enum ObstacleBuilder {
             material.emissiveColor = .init(color: theme.accent)
             material.emissiveIntensity = 1.2
         }
-        let block = ModelEntity(
-            mesh: .generateBox(width: size.x, height: 0.1, depth: size.y, cornerRadius: 0.012),
-            materials: [material]
-        )
+        let block = Prim.roundedBox(width: size.x, height: 0.1, depth: size.y,
+                                    cornerRadius: 0.012, material: material)
         block.name = "wall"
         let center3 = SIMD3(center.x, baseY + 0.05, center.y)
         block.position = center3
-        kinematicPhysics(block, shape: .generateBox(width: size.x, height: 0.1, depth: size.y))
+        kinematicPhysics(block, shape: Prim.boxShape(width: size.x, height: 0.1, depth: size.y))
         root.addChild(block)
 
         animated.append(AnimatedObstacle(
@@ -383,20 +376,20 @@ enum ObstacleBuilder {
         material.emissiveIntensity = theme.emissiveWalls ? 1.8 : 0.4
 
         let body = ModelEntity(
-            mesh: .generateCylinder(height: 0.09, radius: radius),
+            mesh: Prim.cylinderMesh(height: 0.09, radius: radius),
             materials: [material]
         )
         body.name = name
         body.position = SIMD3(center.x, 0.045, center.y)
         body.components.set(CollisionComponent(shapes: [
-            .generateConvex(from: .generateCylinder(height: 0.09, radius: radius))
+            Prim.cylinderConvex(height: 0.09, radius: radius)
         ]))
         body.components.set(PhysicsBodyComponent(
             massProperties: .default, material: GamePhysics.bumperMaterial, mode: .static))
         root.addChild(body)
 
         let cap = ModelEntity(
-            mesh: .generateCylinder(height: 0.012, radius: radius * 0.85),
+            mesh: Prim.cylinderMesh(height: 0.012, radius: radius * 0.85),
             materials: [SceneBuilder.simpleMaterial(UIColor(white: 0.95, alpha: 1), roughness: 0.35)]
         )
         cap.position.y = 0.05
@@ -417,13 +410,13 @@ enum ObstacleBuilder {
             material.emissiveIntensity = 1.6
         }
         let post = ModelEntity(
-            mesh: .generateCylinder(height: 0.11, radius: radius),
+            mesh: Prim.cylinderMesh(height: 0.11, radius: radius),
             materials: [material]
         )
         post.name = "wall"
         post.position = SIMD3(center.x, 0.055, center.y)
         post.components.set(CollisionComponent(shapes: [
-            .generateConvex(from: .generateCylinder(height: 0.11, radius: radius))
+            Prim.cylinderConvex(height: 0.11, radius: radius)
         ]))
         post.components.set(PhysicsBodyComponent(
             massProperties: .default, material: GamePhysics.wallMaterial, mode: .static))
@@ -509,14 +502,12 @@ enum ObstacleBuilder {
 
     private static func buildBlock(center: SIMD2<Float>, size: SIMD3<Float>, yaw: Float,
                                    baseY: Float, materials: ThemeMaterials, into root: Entity) {
-        let block = ModelEntity(
-            mesh: .generateBox(width: size.x, height: size.y, depth: size.z, cornerRadius: 0.008),
-            materials: [materials.wall]
-        )
+        let block = Prim.roundedBox(width: size.x, height: size.y, depth: size.z,
+                                    cornerRadius: 0.008, material: materials.wall)
         block.name = "wall"
         block.position = SIMD3(center.x, baseY + size.y / 2, center.y)
         block.orientation = simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0))
-        staticPhysics(block, shape: .generateBox(width: size.x, height: size.y, depth: size.z))
+        staticPhysics(block, shape: Prim.boxShape(width: size.x, height: size.y, depth: size.z))
         root.addChild(block)
     }
 
@@ -661,10 +652,8 @@ enum ObstacleBuilder {
                                   into root: Entity, animated: inout [AnimatedObstacle]) {
         let height: Float = 0.13
         // The frame stays put so the player can read where the gate will appear.
-        let frame = ModelEntity(
-            mesh: .generateBox(width: size.x + 0.06, height: 0.02, depth: size.y + 0.05,
-                               cornerRadius: 0.006),
-            materials: [materials.metal])
+        let frame = Prim.roundedBox(width: size.x + 0.06, height: 0.02, depth: size.y + 0.05,
+                                    cornerRadius: 0.006, material: materials.metal)
         frame.position = SIMD3(center.x, baseY + 0.002, center.y)
         frame.orientation = simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0))
         root.addChild(frame)
@@ -678,14 +667,13 @@ enum ObstacleBuilder {
             barMaterial.emissiveIntensity = 1.3
         }
 
-        let gate = ModelEntity(
-            mesh: .generateBox(width: size.x, height: height, depth: size.y, cornerRadius: 0.008),
-            materials: [barMaterial])
+        let gate = Prim.roundedBox(width: size.x, height: height, depth: size.y,
+                                   cornerRadius: 0.008, material: barMaterial)
         gate.name = "wall"
         let base = SIMD3(center.x, baseY + height / 2, center.y)
         gate.position = base
         gate.orientation = simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0))
-        kinematicPhysics(gate, shape: .generateBox(width: size.x, height: height, depth: size.y))
+        kinematicPhysics(gate, shape: Prim.boxShape(width: size.x, height: height, depth: size.y))
         root.addChild(gate)
 
         // Sink the crown a good way under the felt, not just below it. The solver

@@ -18,9 +18,11 @@
 //  sends — and props that share a mesh and a material are what the renderer
 //  needs to batch their draws.
 //
-//  Only scenery uses this. Anything the ball can touch keeps its own mesh: a
-//  collider is generated from the shape it is given, and scaling an entity
-//  scales its collider with it.
+//  The unit-mesh trick is for scenery only. Anything the ball can touch keeps a
+//  mesh built at its real size, because scaling an entity scales its collider
+//  with it — but it can still share that mesh with the next thing of the same
+//  size, which is what `roundedBox` and `boxShape` are for. A hole fenced in
+//  fifty boards asks for a handful of distinct sizes, over and over.
 //
 
 import Foundation
@@ -86,6 +88,42 @@ enum Prim {
         return ModelEntity(mesh: mesh, materials: [material])
     }
 
+    /// Collision box of a given size, from a cache keyed the same way.
+    ///
+    /// `ShapeResource.generateBox` costs about as much as the mesh beside it,
+    /// and the boards of a hole repeat their sizes far more than they vary:
+    /// every segment of an `arcWall` is the same chord, and a lane fenced on
+    /// both sides has each run twice. Sharing one shape between colliders is
+    /// safe — a `CollisionComponent` reads it and never writes to it.
+    static func boxShape(width: Float, height: Float, depth: Float) -> ShapeResource {
+        let key = RoundedBoxKey(width: width, height: height, depth: depth, cornerRadius: 0)
+        if let cached = boxShapes[key] { return cached }
+        let shape = ShapeResource.generateBox(width: key.width, height: key.height,
+                                              depth: key.depth)
+        boxShapes[key] = shape
+        return shape
+    }
+
+    /// Cylinder at its real size, for the round things the ball can touch —
+    /// posts and bumpers, which a hole now plants half a dozen of at a time,
+    /// all the same size.
+    static func cylinderMesh(height: Float, radius: Float) -> MeshResource {
+        let key = RoundedBoxKey(width: radius, height: height, depth: 0, cornerRadius: 0)
+        if let cached = cylinderMeshes[key] { return cached }
+        let mesh = MeshResource.generateCylinder(height: key.height, radius: key.width)
+        cylinderMeshes[key] = mesh
+        return mesh
+    }
+
+    /// The matching collision hull, cached on the same key.
+    static func cylinderConvex(height: Float, radius: Float) -> ShapeResource {
+        let key = RoundedBoxKey(width: radius, height: height, depth: 0, cornerRadius: 0)
+        if let cached = cylinderShapes[key] { return cached }
+        let shape = ShapeResource.generateConvex(from: cylinderMesh(height: height, radius: radius))
+        cylinderShapes[key] = shape
+        return shape
+    }
+
     /// Forces the shared meshes into existence.
     ///
     /// They are `static let`, so each is built the first time something asks for
@@ -102,12 +140,18 @@ enum Prim {
     }
 
     private static var roundedBoxes: [RoundedBoxKey: MeshResource] = [:]
+    private static var boxShapes: [RoundedBoxKey: ShapeResource] = [:]
+    private static var cylinderMeshes: [RoundedBoxKey: MeshResource] = [:]
+    private static var cylinderShapes: [RoundedBoxKey: ShapeResource] = [:]
 
-    /// Drops the generated corner-radius meshes. The four unit meshes stay:
-    /// they are `static let`, they are shared by everything, and between them
-    /// they come to a few kilobytes. See `AssetCaches`.
+    /// Drops the generated meshes and collision shapes. The four unit meshes
+    /// stay: they are `static let`, they are shared by everything, and between
+    /// them they come to a few kilobytes. See `AssetCaches`.
     static func purge() {
         roundedBoxes.removeAll()
+        boxShapes.removeAll()
+        cylinderMeshes.removeAll()
+        cylinderShapes.removeAll()
     }
 
     private struct RoundedBoxKey: Hashable {

@@ -640,16 +640,18 @@ enum SceneBuilder {
         let yaw = atan2(-delta.y, delta.x)
         let boxLength = length + segment.thickness
 
-        let entity = ModelEntity(
-            mesh: .generateBox(width: boxLength, height: segment.height,
-                               depth: segment.thickness, cornerRadius: 0.008),
-            materials: [materials.wall]
-        )
+        // Both the mesh and the collider come from `Prim`'s size-keyed caches.
+        // A hole laid out with banked corners and islands runs to dozens of
+        // boards, and the arcs among them are all the same chord — generating
+        // each one afresh is the single largest slice of building a hole.
+        let entity = Prim.roundedBox(width: boxLength, height: segment.height,
+                                     depth: segment.thickness, cornerRadius: 0.008,
+                                     material: materials.wall)
         entity.name = "wall"
         entity.position = SIMD3(mid.x, segment.baseY + segment.height / 2, mid.y)
         entity.orientation = simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0))
         entity.components.set(CollisionComponent(shapes: [
-            .generateBox(width: boxLength, height: segment.height, depth: segment.thickness)
+            Prim.boxShape(width: boxLength, height: segment.height, depth: segment.thickness)
         ]))
         entity.components.set(PhysicsBodyComponent(
             massProperties: .default, material: GamePhysics.wallMaterial, mode: .static))
@@ -657,11 +659,9 @@ enum SceneBuilder {
 
         // Glowing top strip in the neon world.
         if theme.emissiveWalls {
-            let strip = ModelEntity(
-                mesh: .generateBox(width: boxLength, height: 0.012,
-                                   depth: segment.thickness + 0.006, cornerRadius: 0.005),
-                materials: [materials.wallGlow]
-            )
+            let strip = Prim.roundedBox(width: boxLength, height: 0.012,
+                                        depth: segment.thickness + 0.006, cornerRadius: 0.005,
+                                        material: materials.wallGlow)
             strip.position = SIMD3(0, segment.height / 2 + 0.006, 0)
             entity.addChild(strip)
         }

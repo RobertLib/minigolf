@@ -12,6 +12,12 @@ Každý svět má 12 jamek a vlastní pravidla hry:
 • Bouřlivé pobřeží — poryvy větru a skoky přes příboj
 • Orbitální stanice — loopingy, magnety a prázdnota
 
+HRA, KTERÁ S TEBOU ROSTE
+První jamka je metr široká rovinka s jedním ježkem. Poslední je hřiště o ploše
+deseti takových jamek, které se hraje na několik úseků: rozjezd, mantinelová
+zatáčka, looping, propast a výstup rampou na vyvýšený green. Mezi tím přibývá
+geometrie, překážek i par — svět od světa, jamka od jamky.
+
 OVLÁDÁNÍ, KTERÉ SEDNE NA PRVNÍ RÁNU
 Táhni prstem od míčku — čím delší tah, tím silnější odpal. Puštění vystřelí. Tečkovaná naváděcí čára ukáže dráhu včetně odrazů od mantinelů a zezlátne ve chvíli, kdy rána padne do jamky. Chceš to těžší? V nastavení si čáru zkrátíš nebo úplně vypneš.
 

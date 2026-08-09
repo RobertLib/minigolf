@@ -12,6 +12,12 @@ Twelve holes per world, each with rules of its own:
 • Storm Coast — gusting wind and jumps over the surf
 • Orbital Station — loops, magnets and open space
 
+A GAME THAT GROWS WITH YOU
+The first hole is a metre-wide straight with one hedgehog on it. The last is ten
+times the size and played in stages: a run-up, a banked corner, a loop, a gap
+with nothing under it, and a ramp to a raised green. Geometry, obstacles and par
+all build the whole way — world by world and hole by hole.
+
 CONTROLS YOU GET ON THE FIRST PUTT
 Drag back from the ball — the longer the drag, the harder the shot. Release to swing. A dotted aim line predicts the path including bank shots off the rails, and turns gold the moment the putt is going in. Want it harder? Shorten the line or switch it off in settings.
 

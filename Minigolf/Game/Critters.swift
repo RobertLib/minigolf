@@ -312,12 +312,12 @@ enum CritterBuilder {
         // character itself drops out of sight.
         if case .burrow = motion, let rimColor = kind.burrowRim {
             let rim = ModelEntity(
-                mesh: .generateCylinder(height: 0.004, radius: kind.radius + 0.022),
+                mesh: Prim.cylinderMesh(height: 0.004, radius: kind.radius + 0.022),
                 materials: [SceneBuilder.simpleMaterial(rimColor, roughness: 0.95)])
             rim.position = SIMD3(center.x, baseY + 0.002, center.y)
             root.addChild(rim)
             let pit = ModelEntity(
-                mesh: .generateCylinder(height: 0.004, radius: kind.radius + 0.004),
+                mesh: Prim.cylinderMesh(height: 0.004, radius: kind.radius + 0.004),
                 materials: [SceneBuilder.simpleMaterial(rimColor.darkened(by: 0.6),
                                                         roughness: 1.0)])
             pit.position.y = 0.0025
@@ -347,22 +347,26 @@ enum CritterBuilder {
         return material
     }
 
+    // The four shape helpers below build every character in the game, a dozen
+    // parts at a time, and a hole now carries two or three characters. None of
+    // these parts collides with anything — the body's own hull, built above, is
+    // the only collider a critter has — so they can all come off `Prim`'s
+    // shared meshes instead of generating one apiece.
     private static func ball(_ radius: Float, _ material: any RealityKit.Material,
                              at position: SIMD3<Float>,
                              scale: SIMD3<Float> = .one) -> ModelEntity {
-        let entity = ModelEntity(mesh: .generateSphere(radius: radius), materials: [material])
+        let entity = Prim.sphere(radius: radius, material: material)
         entity.position = position
-        entity.scale = scale
+        entity.scale *= scale
         return entity
     }
 
     private static func slab(_ size: SIMD3<Float>, _ material: any RealityKit.Material,
                              at position: SIMD3<Float>, yaw: Float = 0,
                              roll: Float = 0) -> ModelEntity {
-        let entity = ModelEntity(
-            mesh: .generateBox(width: size.x, height: size.y, depth: size.z,
-                               cornerRadius: min(size.x, min(size.y, size.z)) * 0.3),
-            materials: [material])
+        let entity = Prim.roundedBox(width: size.x, height: size.y, depth: size.z,
+                                     cornerRadius: min(size.x, min(size.y, size.z)) * 0.3,
+                                     material: material)
         entity.position = position
         entity.orientation = simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0)) *
                              simd_quatf(angle: roll, axis: SIMD3(0, 0, 1))
@@ -375,8 +379,7 @@ enum CritterBuilder {
     private static func spike(height: Float, radius: Float, _ material: any RealityKit.Material,
                               at position: SIMD3<Float>, pitch: Float = .pi / 2,
                               yaw: Float = 0) -> ModelEntity {
-        let entity = ModelEntity(mesh: .generateCone(height: height, radius: radius),
-                                 materials: [material])
+        let entity = Prim.cone(height: height, radius: radius, material: material)
         entity.position = position
         entity.orientation = simd_quatf(angle: yaw, axis: SIMD3(0, 1, 0)) *
                              simd_quatf(angle: pitch, axis: SIMD3(1, 0, 0))
@@ -386,8 +389,7 @@ enum CritterBuilder {
     private static func rod(height: Float, radius: Float, _ material: any RealityKit.Material,
                             at position: SIMD3<Float>, tilt: Float = 0,
                             axis: SIMD3<Float> = SIMD3(0, 0, 1)) -> ModelEntity {
-        let entity = ModelEntity(mesh: .generateCylinder(height: height, radius: radius),
-                                 materials: [material])
+        let entity = Prim.cylinder(height: height, radius: radius, material: material)
         entity.position = position
         entity.orientation = simd_quatf(angle: tilt, axis: axis)
         return entity

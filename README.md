@@ -6,16 +6,23 @@ zvuky jsou syntetizované WAVy přibalené v bundlu.
 
 ## Hra
 
-- **9 světů × 12 jamek = 108 jamek** s postupným odemykáním:
-  - 🌿 **Zelená zahrada** — sluneční klasika (začátečník, par 35)
-  - ☀️ **Pouštní oáza** — písečné pasti, voda, rotory (snadné, par 38)
-  - 🌳 **Chrám v džungli** — bahno, liány, portály, řeky (střední, par 42)
-  - ❄️ **Zamrzlý fjord** — klouzavý led, kry, náklony (těžké, par 42)
-  - ✨ **Neonové noci** — Tron atmosféra, pinball, warpy (velmi těžké, par 42)
-  - 🌋 **Vulkanická výheň** — láva, gejzíry, železné brány (expert, par 46)
-  - ⚙️ **Hodinový stroj** — otočné talíře, písty, děla (mistr, par 42)
-  - 🌊 **Bouřlivé pobřeží** — poryvy větru, skoky přes příboj (brutální, par 42)
-  - 🌌 **Orbitální stanice** — loopingy, magnety, prázdnota (legendární, par 44)
+- **9 světů × 12 jamek = 108 jamek** s postupným odemykáním (celkový par 456):
+  - 🌿 **Zelená zahrada** — sluneční klasika (začátečník, par 36)
+  - ☀️ **Pouštní oáza** — písečné pasti, voda, rotory (snadné, par 42)
+  - 🌳 **Chrám v džungli** — bahno, liány, portály, řeky (střední, par 45)
+  - ❄️ **Zamrzlý fjord** — klouzavý led, kry, náklony (těžké, par 48)
+  - ✨ **Neonové noci** — Tron atmosféra, pinball, warpy (velmi těžké, par 51)
+  - 🌋 **Vulkanická výheň** — láva, gejzíry, železné brány (expert, par 54)
+  - ⚙️ **Hodinový stroj** — otočné talíře, písty, děla (mistr, par 57)
+  - 🌊 **Bouřlivé pobřeží** — poryvy větru, skoky přes příboj (brutální, par 60)
+  - 🌌 **Orbitální stanice** — loopingy, magnety, prázdnota (legendární, par 63)
+- **Obtížnost roste s každou jamkou i s každým světem.** Křivka je záměrná a dá se
+  změřit skriptem níže: hrací plocha jde od 3,4 m² (Zahrada 1) po 34,8 m²
+  (Orbitální stanice 12), překážek na jamku od 3 po 15, par od 2 po 6. První
+  jamka světa je vždy mírnější než finále toho předchozího, ale obě čísla —
+  začátek i finále — jdou svět od světa nahoru. Pozdější světy stojí na několika
+  úsecích za sebou: rozjezd, mantinelová zatáčka, hazard a nakonec výstup rampou
+  na vyvýšený green s vlastními překážkami.
 - **Překážky:** větrný mlýn, rotory, posuvné bloky, bumpery, kuželky, retardéry,
   rampy na vyvýšené greeny, tunely, **naklonené greeny**, **pásy/řeky**,
   **portály**, **časované brány**, **kyvadla**, **gejzírové odpaliště** a
