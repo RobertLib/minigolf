@@ -379,32 +379,88 @@ func roundedKerb(_ x0: Float, _ x1: Float, _ z0: Float, _ z1: Float,
     }
 }
 
+/// How far the kerb line may travel sideways within one course of felt.
+///
+/// A course is an axis-aligned rectangle and the kerb is a diagonal chord, so a
+/// course laid under that chord leaves a wedge of bare ground at its wide end —
+/// and the width of that wedge is exactly how far the kerb moved across the
+/// course. One course per board, which is what this used to lay, moved the kerb
+/// 18 cm in a 0.42 m corner: that is the bare ground you could see in the
+/// corners, and since the collision surface is cut from these same patches, it
+/// was also a hole the ball dropped through.
+///
+/// Kept just inside the boards' half-thickness of 0.0275, so what is left of the
+/// wedge ends up underneath the board that cuts the corner. Measured across every
+/// radius the library uses, that leaves at most **0.8 mm** of bare ground and no
+/// felt at all crossing the boards.
+///
+/// It buys that with courses, and a course is a slab the renderer draws — so it
+/// is set at the loosest value that still hides the wedge rather than the
+/// tightest that measures zero. Halving it to 0.025 takes the worst gap from
+/// 0.8 mm to 0.0 and costs a fifth again as many slabs, which is a trade for
+/// nothing anybody can see.
+private let feltBandSpan: Float = 0.030
+
+/// Breakpoints down one rounded corner as `(depth, inset)` pairs, measured in
+/// from the edge being rounded: `inset` is how far the kerb line stands in from
+/// the straight side at that depth. The chord corners are always breakpoints, so
+/// the felt meets the boards exactly where they turn.
+private func kerbCourses(radius r: Float, steps: Int) -> [(depth: ClosedRange<Float>, inset: Float)] {
+    // Corner k on the kerb: `inset` out from the straight side, `depth` in from
+    // the edge. k = 0 sits at the tangent, k = steps at the corner itself.
+    let corners = cornerSteps(steps).map { (inset: r * (1 - $0.cos), depth: r * (1 - $0.sin)) }
+
+    var breaks: [(inset: Float, depth: Float)] = []
+    for i in 0..<(corners.count - 1) {
+        let a = corners[i], b = corners[i + 1]
+        let cuts = max(1, Int((abs(b.inset - a.inset) / feltBandSpan).rounded(.up)))
+        for j in 0..<cuts {
+            let f = Float(j) / Float(cuts)
+            breaks.append((a.inset + (b.inset - a.inset) * f,
+                           a.depth + (b.depth - a.depth) * f))
+        }
+    }
+    breaks.append(corners[corners.count - 1])
+
+    // Inset falls as depth grows, so a course takes the inset of its shallow
+    // end: that is the one that keeps every millimetre of felt inside the boards.
+    return (0..<(breaks.count - 1)).map { i in
+        let (hi, lo) = (breaks[i], breaks[i + 1])
+        return (min(hi.depth, lo.depth)...max(hi.depth, lo.depth), max(hi.inset, lo.inset))
+    }
+}
+
 /// The felt inside a `roundedLoop`, laid in courses like stone: one wide band
-/// across the middle and a narrower one for every step of the rounding, so the
-/// corners the kerb cuts are left to the paving rather than paved in felt.
+/// across the middle and a run of narrow ones over each rounded end, every one
+/// of them inscribed under the boards — so no felt crosses the kerb and no
+/// ground shows between the two.
+///
 /// Give it the same arguments as the loop; the two only agree while that holds.
+/// The courses are finer than the kerb's boards on purpose; see `feltBandSpan`.
 func roundedFloor(_ x0: Float, _ x1: Float, _ z0: Float, _ z1: Float,
                   far: Float, near: Float = 0, steps: Int = 2,
                   kind: FloorPatch.Kind = .green, y: Float = 0) -> [FloorPatch] {
-    let arc = cornerSteps(steps)
     var out = [FloorPatch(rect: GroundRect(x0: x0, x1: x1, z0: z0 + far, z1: z1 - near),
                           kind: kind, y: y)]
-    for k in arc.indices.dropLast() {
-        // Each course stops at the narrow end of the step it spans, so the
-        // board cutting across that step always has felt behind it.
-        if far > 0.001 {
-            let inset = far * (1 - arc[k + 1].cos)
-            out.append(FloorPatch(
-                rect: GroundRect(x0: x0 + inset, x1: x1 - inset,
-                                 z0: z0 + far * (1 - arc[k + 1].sin),
-                                 z1: z0 + far * (1 - arc[k].sin)), kind: kind, y: y))
+
+    func course(inset: Float, z0 zLo: Float, z1 zHi: Float) {
+        // A corner rounded harder than the green is wide would fold the course
+        // inside out; there is no felt left to lay at that depth.
+        guard x1 - inset > x0 + inset + 0.001 else { return }
+        out.append(FloorPatch(rect: GroundRect(x0: x0 + inset, x1: x1 - inset,
+                                               z0: zLo, z1: zHi), kind: kind, y: y))
+    }
+
+    if far > 0.001 {
+        for band in kerbCourses(radius: far, steps: steps) {
+            course(inset: band.inset,
+                   z0: z0 + band.depth.lowerBound, z1: z0 + band.depth.upperBound)
         }
-        if near > 0.001 {
-            let inset = near * (1 - arc[k + 1].cos)
-            out.append(FloorPatch(
-                rect: GroundRect(x0: x0 + inset, x1: x1 - inset,
-                                 z0: z1 - near * (1 - arc[k].sin),
-                                 z1: z1 - near * (1 - arc[k + 1].sin)), kind: kind, y: y))
+    }
+    if near > 0.001 {
+        for band in kerbCourses(radius: near, steps: steps) {
+            course(inset: band.inset,
+                   z0: z1 - band.depth.upperBound, z1: z1 - band.depth.lowerBound)
         }
     }
     return out

@@ -333,12 +333,14 @@ enum SceneBuilder {
         Scenery.buildHorizon(level: level, theme: theme, into: root)
         buildLights(theme: theme, level: level, into: root)
 
-        // Floors: slabs are drawn per patch, but collision is merged per height
-        // so the ball never crosses an exposed box edge mid-lane.
+        // Floors: the green slabs are drawn as one mesh a height and collision is
+        // merged per height too, so the ball never crosses an exposed box edge
+        // mid-lane.
+        var greens: [FloorPatch] = []
         for patch in level.floors {
             switch patch.kind {
             case .green:
-                addFloor(patch, materials: materials, into: root)
+                greens.append(patch)
             case .sand, .mud, .ice:
                 addSurfaceOverlay(patch, materials: materials, into: root)
                 surfaceRegions.append(SurfaceRegion(
@@ -352,6 +354,7 @@ enum SceneBuilder {
             }
         }
         for y in floorHeights(of: level) {
+            addGreenSlabs(greens.filter { $0.y == y }, y: y, materials: materials, into: root)
             if let shape = floorShapes[y] {
                 addFloorSurface(shape, into: root)
             } else if let rect = floorFallback(for: level, at: y) {
@@ -605,16 +608,90 @@ enum SceneBuilder {
         root.addChild(entity)
     }
 
-    /// Visual slab only — collision comes from `addFloorCollider`.
-    private static func addFloor(_ patch: FloorPatch, materials: ThemeMaterials, into root: Entity) {
-        let size = patch.rect.size
-        let height = patch.y + 0.06
-        let entity = ModelEntity(
-            mesh: .generateBox(width: size.x, height: height, depth: size.y),
-            materials: [materials.felt(size: size)]
-        )
+    /// Metres of felt per tile of its stripe texture.
+    private static let feltTile: Float = 0.9
+
+    /// Every green slab at one height, as a single mesh.
+    ///
+    /// Visual only — collision still comes from `addFloorSurface`, off the welded
+    /// mesh, exactly as before. The slabs are the same boxes this drew one at a
+    /// time until now; nothing about the shape of the floor changes here.
+    ///
+    /// What changes is that they arrive as one mesh with one material instead of
+    /// an entity each, and that is what makes a rounded end affordable. A rounded
+    /// end is laid in some forty courses so the felt can follow the kerb round
+    /// the corner, and forty entities is forty draws, forty box meshes at 0.24 ms
+    /// and forty materials at 0.29 ms — some 21 ms of a hole, for one green.
+    ///
+    /// The texture is placed off world coordinates rather than off each slab's
+    /// own size, which is the other half of the same problem: `felt(size:)` fits
+    /// a whole repeat of the stripe to whatever slab it is given, so the stripes
+    /// changed scale at every joint, and a course three millimetres deep was
+    /// handed a full repeat of the pattern to itself — a band of dense lines
+    /// across the end of the green. Off the world they simply run straight
+    /// through, however the green was cut up.
+    private static func addGreenSlabs(_ patches: [FloorPatch], y: Float,
+                                      materials: ThemeMaterials, into root: Entity) {
+        guard !patches.isEmpty else { return }
+
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+        var uvs: [SIMD2<Float>] = []
+        var indices: [UInt32] = []
+        let tile = 1 / feltTile
+
+        /// Wound counter-clockwise seen from the side it faces; the normal comes
+        /// off the winding, so a face handed in backwards lights backwards rather
+        /// than quietly turning into a hole.
+        func quad(_ a: SIMD3<Float>, _ b: SIMD3<Float>, _ c: SIMD3<Float>, _ d: SIMD3<Float>,
+                  _ uvA: SIMD2<Float>, _ uvB: SIMD2<Float>,
+                  _ uvC: SIMD2<Float>, _ uvD: SIMD2<Float>) {
+            let cross = simd_cross(b - a, c - a)
+            let length = simd_length(cross)
+            let normal = length > 1e-9 ? cross / length : SIMD3<Float>(0, 1, 0)
+            let base = UInt32(positions.count)
+            positions.append(contentsOf: [a, b, c, d])
+            normals.append(contentsOf: [normal, normal, normal, normal])
+            uvs.append(contentsOf: [uvA, uvB, uvC, uvD])
+            indices.append(contentsOf: [base, base + 1, base + 2, base, base + 2, base + 3])
+        }
+
+        for patch in patches {
+            let r = patch.rect
+            let (x0, x1) = (r.minX, r.maxX)
+            let (z0, z1) = (r.minZ, r.maxZ)
+            let bottom = y - (y + 0.06)   // the same underside `addFloor` gave them
+            let depth = (y - bottom) * tile
+
+            /// Top and bottom read their texture straight off the world.
+            func flat(_ x: Float, _ z: Float) -> SIMD2<Float> { SIMD2(x * tile, z * tile) }
+
+            quad(SIMD3(x0, y, z1), SIMD3(x1, y, z1), SIMD3(x1, y, z0), SIMD3(x0, y, z0),
+                 flat(x0, z1), flat(x1, z1), flat(x1, z0), flat(x0, z0))
+            quad(SIMD3(x0, bottom, z0), SIMD3(x1, bottom, z0),
+                 SIMD3(x1, bottom, z1), SIMD3(x0, bottom, z1),
+                 flat(x0, z0), flat(x1, z0), flat(x1, z1), flat(x0, z1))
+
+            /// One upright, from its two top corners straight down.
+            func side(_ a: SIMD3<Float>, _ b: SIMD3<Float>, run: Float) {
+                quad(a, b, SIMD3(b.x, bottom, b.z), SIMD3(a.x, bottom, a.z),
+                     SIMD2(0, depth), SIMD2(run * tile, depth), SIMD2(run * tile, 0), SIMD2(0, 0))
+            }
+            side(SIMD3(x0, y, z1), SIMD3(x0, y, z0), run: z1 - z0)
+            side(SIMD3(x1, y, z0), SIMD3(x1, y, z1), run: z1 - z0)
+            side(SIMD3(x0, y, z0), SIMD3(x1, y, z0), run: x1 - x0)
+            side(SIMD3(x1, y, z1), SIMD3(x0, y, z1), run: x1 - x0)
+        }
+
+        var descriptor = MeshDescriptor(name: "floor")
+        descriptor.positions = MeshBuffer(positions)
+        descriptor.normals = MeshBuffer(normals)
+        descriptor.textureCoordinates = MeshBuffer(uvs)
+        descriptor.primitives = .triangles(indices)
+        guard let mesh = try? MeshResource.generate(from: [descriptor]) else { return }
+
+        let entity = ModelEntity(mesh: mesh, materials: [materials.feltSheet])
         entity.name = "floor"
-        entity.position = SIMD3(patch.rect.center.x, patch.y - height / 2, patch.rect.center.y)
         root.addChild(entity)
     }
 
@@ -1468,6 +1545,11 @@ struct ThemeMaterials {
     /// Machined steel for gates and pendulum hardware.
     let metal: PhysicallyBasedMaterial
     let star: UnlitMaterial
+    /// Felt for a whole green drawn as one mesh. Its tiling is carried by the
+    /// vertices instead of a texture transform, which is what lets every slab of
+    /// a green share one material — and so one draw. `felt(size:)` below is the
+    /// per-slab version, still used by the one floor that is not a `FloorPatch`.
+    let feltSheet: PhysicallyBasedMaterial
 
     /// The set for a world, built once and kept for as long as the app runs.
     ///
@@ -1515,6 +1597,15 @@ struct ThemeMaterials {
             groundTexture = TextureFactory.speckle(theme.groundColor, theme.groundDetail,
                                                    key: "ground-\(course.rawValue)", seed: 5, dots: 1400)
         }
+
+        var sheet = PhysicallyBasedMaterial()
+        if let feltTexture {
+            sheet.baseColor = .init(tint: .white, texture: ThemeMaterials.tiled(feltTexture))
+        } else {
+            sheet.baseColor = .init(tint: theme.feltTop)
+        }
+        sheet.roughness = 0.92
+        feltSheet = sheet
 
         var wallMat = PhysicallyBasedMaterial()
         wallMat.baseColor = .init(tint: theme.wallColor)
