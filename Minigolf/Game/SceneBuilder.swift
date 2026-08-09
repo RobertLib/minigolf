@@ -86,6 +86,16 @@ enum GamePhysics {
     /// not read as progress.
     static let zoneStallWindow: Float = 0.35
     static let zoneStallHeadway: Float = 0.025
+    /// A zone still working on the same ball long after it should have carried
+    /// it clear is not taking it anywhere the hole was drawn for: it is holding
+    /// it against the boards, or two belts are pulling against each other over
+    /// their seam. Its grip is eased off over this long rather than cut, so the
+    /// ball rolls down to a stop the way it would on any other patch of felt.
+    static let zoneGripFade: Float = 1.4
+    /// Bounds on how long a zone is given: no zone lets go before the first,
+    /// none keeps hold past the second.
+    static let zoneHoldMin: Float = 2.5
+    static let zoneHoldMax: Float = 6
 }
 
 /// The chase camera's rig. Shared with the scene builder, which cannot size the
@@ -128,6 +138,11 @@ struct ForceZone {
     /// rather than pushed, since the push alone cannot start a ball that has
     /// stopped: see `GamePhysics.zoneStallWindow`.
     var carry: SIMD2<Float>
+    /// How long this zone may work on one ball before it lets go: what it takes
+    /// to carry a ball standing at the upstream edge clear of the far one, and
+    /// a moment over. Past that both the push and the drag fade out — see
+    /// `GamePhysics.zoneGripFade`.
+    var hold: Float
 }
 
 /// A pair of rings that throw the ball from one to the other.

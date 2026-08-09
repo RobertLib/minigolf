@@ -532,6 +532,18 @@ enum ObstacleBuilder {
         atan2(direction.x, direction.y)
     }
 
+    /// How long a force zone is given to shift one ball: the time it needs to
+    /// take a ball standing at the upstream edge clear of the far one, plus a
+    /// moment over for the pick-up. A zone that has had the ball longer than
+    /// that is not carrying it across — it is holding it against something —
+    /// so from here on its grip fades and the ball is left to roll to a stop.
+    private static func zoneHold(rect: GroundRect, direction: SIMD2<Float>, speed: Float) -> Float {
+        let size = rect.size
+        let travel = abs(direction.x) * size.x + abs(direction.y) * size.y
+        let crossing = travel / max(speed, 0.2) + 1.2
+        return min(max(crossing, GamePhysics.zoneHoldMin), GamePhysics.zoneHoldMax)
+    }
+
     /// Banked green: a translucent wash with a sparse row of drift arrows. The
     /// push itself comes from the force zone the coordinator applies.
     private static func buildSlope(rect: GroundRect, direction: SIMD2<Float>, strength: Float,
@@ -559,9 +571,11 @@ enum ObstacleBuilder {
 
         // A bank only creeps: a ball that stops on one is nudged on its way
         // rather than carried, the way it would trickle down a real slope.
+        let creep = strength * 0.28
         outputs.forceZones.append(ForceZone(
             rect: rect, y: y, force: unit * strength * GamePhysics.ballMass,
-            carry: unit * (strength * 0.28)))
+            carry: unit * creep,
+            hold: zoneHold(rect: rect, direction: unit, speed: creep)))
     }
 
     /// Belt: a recessed bed with chevrons riding along it, plus a much stronger
@@ -605,7 +619,8 @@ enum ObstacleBuilder {
 
         outputs.forceZones.append(ForceZone(
             rect: rect, y: y, force: unit * strength * GamePhysics.ballMass,
-            carry: unit * running))
+            carry: unit * running,
+            hold: zoneHold(rect: rect, direction: unit, speed: running)))
     }
 
     // MARK: Teleporter

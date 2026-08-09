@@ -88,6 +88,13 @@ final class GameSceneCoordinator {
     private var zoneAnchor: SIMD3<Float>?
     private var zoneStall: Float = 0
     private var zoneBlocked = false
+    /// How long the zones under the ball have had hold of it without it once
+    /// getting off them, and the longest any of those zones is prepared to keep
+    /// trying. Neither is reset by crossing from one belt onto the next: a ball
+    /// shuttling over the seam between two opposed belts is exactly the case
+    /// that has to run out of patience.
+    private var zoneCarryTime: Float = 0
+    private var zoneHold: Float = 0
     private var currentSpeed: Float = 0
     private var lastRestPosition = SIMD3<Float>(0, 0, 0)
     /// Damping currently written into the ball's body, so surface changes are
@@ -877,14 +884,21 @@ final class GameSceneCoordinator {
     /// body, after which it ignores force outright. So a ball slower than the
     /// surface under it is dragged up to that speed instead of pushed, and the
     /// belt carries it off the way its chevrons say it should.
+    ///
+    /// None of it lasts forever: the hold fades once the zone has had its time
+    /// (see `zoneGrip`), so a ball the arrows cannot get anywhere slows down and
+    /// stops instead of being worked at until the stroke times out.
     private func applyForceZones(dt: Float) {
         guard let built, !built.forceZones.isEmpty else { return }
         let ball = built.ball
         var carried = false
+        let grip = zoneGrip
 
         for zone in built.forceZones where zoneHolds(zone, ball: ball) {
             carried = true
-            ball.addForce(SIMD3(zone.force.x, 0, zone.force.y), relativeTo: nil)
+            zoneHold = max(zoneHold, zone.hold)
+            guard grip > 0 else { continue }
+            ball.addForce(SIMD3(zone.force.x, 0, zone.force.y) * grip, relativeTo: nil)
             guard !zoneBlocked, let surface = zoneSurface(zone) else { continue }
             // How much the ball is slipping on the surface decides how much of
             // it the surface can hand over: a standing ball is taken up to the
@@ -896,15 +910,28 @@ final class GameSceneCoordinator {
             let target = surface.speed * slip
             let along = simd_dot(ballVelocity.xz, surface.direction)
             guard along < target else { continue }
-            let grab = surface.direction * ((target - along) * GamePhysics.ballMass)
+            let grab = surface.direction * ((target - along) * GamePhysics.ballMass * grip)
             ball.applyLinearImpulse(SIMD3(grab.x, 0, grab.y), relativeTo: nil)
         }
 
         if carried {
+            zoneCarryTime += dt
             trackZoneHeadway(dt: dt, position: ball.position)
         } else {
             releaseZone()
         }
+    }
+
+    /// How much of the arrows the ball still feels. A zone has its full say for
+    /// as long as it would take to carry the ball across, and then eases off
+    /// rather than cutting out, so the ball is seen to slow down before it
+    /// settles. It gets its hold back on the next stroke, not before: picking a
+    /// ball up again the moment it came to rest is what the fade is there to
+    /// stop.
+    private var zoneGrip: Float {
+        let over = zoneCarryTime - zoneHold
+        guard over > 0 else { return 1 }
+        return max(0, 1 - over / GamePhysics.zoneGripFade)
     }
 
     /// True while the ball is standing on this zone's patch of floor.
@@ -938,25 +965,28 @@ final class GameSceneCoordinator {
     }
 
     /// True while a zone has hold of the ball and has not given up on it.
-    private var zoneStillTrying: Bool { zoneAnchor != nil && !zoneBlocked }
+    private var zoneStillTrying: Bool { zoneAnchor != nil && !zoneBlocked && zoneGrip > 0 }
 
     /// Forgets the zone the ball was on: it has left one, or a stroke has given
-    /// a blocked ball a fresh chance to get away.
+    /// a blocked or worn-out zone a fresh chance to get it away.
     private func releaseZone() {
         zoneAnchor = nil
         zoneStall = 0
         zoneBlocked = false
+        zoneCarryTime = 0
+        zoneHold = 0
     }
 
     /// Picks up a ball that is already standing on a belt or a banked green —
     /// teed up on the arrows, or parked there when a shot ran out of patience.
     /// The solver has stopped listening to that body by then, so it is rebuilt
     /// with the surface's speed already in it, the way a portal hands the ball
-    /// out of the far ring. A ball the belt has given up on is left where it is:
-    /// picking it up again every time it settled would leave it twitching on the
-    /// boards with no way to putt.
+    /// out of the far ring. A ball the belt has given up on — blocked, or simply
+    /// carried for as long as the belt is given — is left where it is: picking
+    /// it up again every time it settled would leave it twitching on the boards
+    /// with no way to putt.
     private func liftFromForceZone() -> Bool {
-        guard let built, !built.forceZones.isEmpty, !zoneBlocked else { return false }
+        guard let built, !built.forceZones.isEmpty, !zoneBlocked, zoneGrip > 0 else { return false }
         let ball = built.ball
 
         for zone in built.forceZones where zoneHolds(zone, ball: ball) {
