@@ -63,6 +63,15 @@ enum GamePhysics {
     /// came off a boost pad still banks off the boards instead of leaving them
     /// faster than the course can be played at.
     static let maxBallSpeed: Float = 5.5
+    /// Nothing a hole can legitimately do to the ball gets it going this fast:
+    /// the hardest putt leaves at 4.4, the strongest boost pad adds 1.3, and a
+    /// rebound is capped at `maxBallSpeed`. Above this something has gone wrong
+    /// — a contact whose impulse read short and was answered with a rebound the
+    /// ball never needed, an obstacle catching it against a board, the solver
+    /// pushing it out of geometry it had no business being inside — and the
+    /// coordinator hands the ball back at `maxBallSpeed` instead of letting it
+    /// leave the course.
+    static let speedCeiling: Float = 7.0
 
     /// How hard a turntable bends the ball's path, per rad/s of disc speed. The
     /// honest figure for a rolling sphere is 2/7; that is a gentle drift over a

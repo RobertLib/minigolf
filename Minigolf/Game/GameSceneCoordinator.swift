@@ -96,6 +96,10 @@ final class GameSceneCoordinator {
     private var zoneCarryTime: Float = 0
     private var zoneHold: Float = 0
     private var currentSpeed: Float = 0
+    /// The raw reading before it is held to `GamePhysics.speedCeiling` — the one
+    /// place that wants to know the ball moved further this frame than any putt
+    /// could carry it, rather than being handed a believable number.
+    private var measuredSpeed: Float = 0
     private var lastRestPosition = SIMD3<Float>(0, 0, 0)
     /// Damping currently written into the ball's body, so surface changes are
     /// only pushed when they actually change.
@@ -329,10 +333,21 @@ final class GameSceneCoordinator {
         }
 
         let ball = built.ball
-        let travelled = ball.position - lastBallPosition
-        currentSpeed = simd_length(travelled) / dt
+        // The ball's speed is read off two frames of its position rather than
+        // asked of the solver, and a step it never actually travelled at — a
+        // hitch shortening the frame, the solver pushing it out of geometry,
+        // an obstacle moving it by hand — reads here as tens of metres a
+        // second. Everything downstream answers that reading with an impulse
+        // to match, above all the rebound, so the ball is only ever credited
+        // with a speed a hole can produce. The unheld reading is kept for the
+        // one check that has to see the spike for what it is.
+        let sampled = (ball.position - lastBallPosition) / dt
+        measuredSpeed = simd_length(sampled)
         previousBallVelocity = ballVelocity
-        ballVelocity = travelled / dt
+        ballVelocity = measuredSpeed > GamePhysics.speedCeiling
+                     ? sampled * (GamePhysics.speedCeiling / measuredSpeed)
+                     : sampled
+        currentSpeed = simd_length(ballVelocity)
         lastBallPosition = ball.position
 
         // A ball going round a loop or sitting in a barrel leaves no roll trail.
@@ -437,6 +452,7 @@ final class GameSceneCoordinator {
                 ball.applyLinearImpulse(warped * GamePhysics.ballMass, relativeTo: nil)
                 lastBallPosition = ball.position
             }
+            governSpeed()
             applyHoleMagnet(dt: dt)
             applyForceZones(dt: dt)
             applyWind()
@@ -1051,6 +1067,39 @@ final class GameSceneCoordinator {
 
         SoundManager.shared.play(.portal, volume: 0.85)
         Haptics.shared.impact(intensity: 0.55)
+    }
+
+    /// Catches a ball that has been sent off faster than the hole can produce.
+    ///
+    /// The rebound is put in by hand, from a velocity read off the ball's own
+    /// positions and a contact impulse saying how much of it the solver already
+    /// took off. When that impulse reads short — a corner raising one event per
+    /// board, a contact whose impulse lands a frame late — the difference is
+    /// paid straight into the ball, and the next board it meets does the same
+    /// with the larger number. A few boards of that and the ball is over the
+    /// kerb and gone.
+    ///
+    /// So the outgoing speed is checked rather than trusted. Direction is taken
+    /// from where the ball actually went, which stays right even when the speed
+    /// read off it does not — only the frame time can be wrong about how far it
+    /// travelled — and the ball is handed back along that line at a speed the
+    /// hole can be played at. Rebuilding the body is what a portal does to drop
+    /// the ball out of the far ring: nothing written into a body survives the
+    /// step it was rebuilt in, so the speed is paid on the next frame.
+    private func governSpeed() {
+        guard let built, pendingWarpVelocity == nil,
+              measuredSpeed > GamePhysics.speedCeiling,
+              simd_length(ballVelocity) > 0.0001
+        else { return }
+
+        let direction = simd_normalize(ballVelocity)
+        let governed = direction * GamePhysics.maxBallSpeed
+        teleportBall(to: built.ball.position)
+        pendingWarpVelocity = governed
+        ballVelocity = governed
+        previousBallVelocity = governed
+        currentSpeed = GamePhysics.maxBallSpeed
+        measuredSpeed = GamePhysics.maxBallSpeed
     }
 
     private func checkBoostPads() {
