@@ -95,7 +95,12 @@ final class GameController {
     private(set) var aimPower: Float = 0
     private(set) var isAiming = false
     var ballInMotion = false
-    var introRunning = false
+    /// Raised before the scene exists rather than by the coordinator alone: the
+    /// RealityView builds a hole asynchronously, so a flag that only went up once
+    /// the flyover started would leave a gap on every load in which the hole
+    /// counts as "waiting" — long enough for the tutorial card to flash up,
+    /// vanish behind the intro and come back.
+    var introRunning = true
 
     var toast: Toast?
     private var toastDismissTask: Task<Void, Never>?
@@ -382,6 +387,7 @@ final class GameController {
         setAim(power: 0, aiming: false)
         ballInMotion = false
         bonusStarInHand = false
+        introRunning = true
         overlay = .none
         sceneToken = UUID()
     }
