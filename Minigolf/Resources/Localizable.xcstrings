@@ -1896,6 +1896,16 @@
         }
       }
     },
+    "Loading hole %lld": {
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Načítá se jamka %lld"
+          }
+        }
+      }
+    },
     "Locked": {
       "localizations": {
         "cs": {

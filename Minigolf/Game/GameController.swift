@@ -101,6 +101,11 @@ final class GameController {
     /// counts as "waiting" — long enough for the tutorial card to flash up,
     /// vanish behind the intro and come back.
     var introRunning = true
+    /// False from the moment a hole is asked for until its scene is built and the
+    /// renderer is keeping up with it, so the screen it arrives on can be covered
+    /// meanwhile. The scene coordinator raises it, and that same moment is the cue
+    /// for the opening sweep — see `GameSceneCoordinator.warmUpScene`.
+    var sceneReady = false
 
     var toast: Toast?
     private var toastDismissTask: Task<Void, Never>?
@@ -388,6 +393,7 @@ final class GameController {
         ballInMotion = false
         bonusStarInHand = false
         introRunning = true
+        sceneReady = false
         overlay = .none
         sceneToken = UUID()
     }

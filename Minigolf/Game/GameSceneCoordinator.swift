@@ -184,12 +184,30 @@ final class GameSceneCoordinator {
     private var flyoverEndLook = SIMD3<Float>(0, 0, 0)
     private var warmupTime: Float = 0
     private var warmupOnTimeFrames = 0
+    /// Poses the camera is stepped through before the hole is ever shown, how many
+    /// frames each has had, and how far down the list the pre-roll has got.
+    private var warmPoses: [(SIMD3<Float>, SIMD3<Float>)] = []
+    private var warmPoseIndex = 0
+    private var warmPoseFrames = 0
+    /// The hole has been handed to the player and the loading veil is on its way
+    /// out. Nothing before this point is on screen.
+    private var sceneRevealed = false
+    private var revealTime: Float = 0
     /// Longest frame the flyover steps over: a hitch may not teleport the camera.
     private let maxFlyoverStep: Float = 1.0 / 30
     /// Frame time that counts as the renderer having caught up.
     private let warmupFrameBudget: Float = 1.0 / 40
-    private let warmupFramesNeeded = 3
-    private let warmupTimeLimit: Float = 0.8
+    private let warmupFramesNeeded = 4
+    private let warmupFramesPerPose = 2
+    /// Grace periods: the pre-roll stops stepping poses at the first and shows the
+    /// hole whatever the frame times at the second. Both are longer than the single
+    /// limit they replace, because waiting now costs a moment on a loading cover
+    /// rather than a frozen picture of the hole the player is waiting to play.
+    private let warmupPoseLimit: Float = 0.7
+    private let warmupTimeLimit: Float = 1.6
+    /// How long the hole is held still after the veil starts fading, so the sweep
+    /// to the ball begins on a hole that is already fully on screen.
+    private let revealHold: Float = 0.3
 
     private var elapsed: Float = 0
     private var lastBounceSound: Float = -1
@@ -267,8 +285,7 @@ final class GameSceneCoordinator {
         lastRestPosition = built.ball.position
 
         // Prime the camera on the intro start pose.
-        (camPosition, camLookAt) = introStartPose()
-        camera.look(at: camLookAt, from: camPosition, relativeTo: nil)
+        aimCamera(at: introStartPose())
 
         state = .intro
         introTime = 0
@@ -359,7 +376,7 @@ final class GameSceneCoordinator {
         switch state {
         case .intro:
             if !flyoverRunning {
-                guard rendererWarmedUp(dt: dt) else { return }
+                guard warmUpScene(dt: dt) else { return }
                 beginFlyover()
             }
             introTime += min(dt, maxFlyoverStep)
@@ -490,11 +507,17 @@ final class GameSceneCoordinator {
     private func finishIntro() {
         state = .waiting
         controller?.introRunning = false
+        // Nothing else lifts the veil. A hole that ends before its pre-roll does —
+        // a stroke limit reached on the frame it loads, a debug launch putting the
+        // ball straight in the cup — would otherwise stay behind the cover.
+        revealScene()
         showAimRing()
     }
 
+    /// A tap skips the sweep, but only once there is something to skip: while the
+    /// veil is up the player is looking at a loading cover, not at the hole.
     func skipIntro() {
-        guard state == .intro else { return }
+        guard state == .intro, sceneRevealed else { return }
         finishIntro()
     }
 
@@ -520,15 +543,78 @@ final class GameSceneCoordinator {
         return (built.holePosition + SIMD3(0, 0.85, 1.25), built.holePosition)
     }
 
-    /// A freshly built scene spends its first frames uploading meshes and
-    /// textures, compiling render pipelines and sizing the shadow map. A
-    /// flyover laid on top of that judders, so the camera holds the opening
-    /// pose until the renderer delivers a few frames on time — with a grace
-    /// period so a slow device still gets going.
-    private func rendererWarmedUp(dt: Float) -> Bool {
+    /// Everything a hole costs before it can be played smoothly happens here, with
+    /// nothing of it on screen: assembling the scene lands as one long frame, and
+    /// the frames after it upload meshes and textures, compile render pipelines and
+    /// size the shadow map. A camera sweeping through that is what reads as a
+    /// stutter, so the hole arrives under a loading cover
+    /// (`GameController.sceneReady`) and this runs the pre-roll behind it — every
+    /// pose the sweep will pass through is drawn once while nobody can see it, the
+    /// opening pose is then held until frames land on time, and the hole is only
+    /// handed over after that. Returns true on the frame the sweep may start.
+    private func warmUpScene(dt: Float) -> Bool {
         warmupTime += dt
-        warmupOnTimeFrames = dt <= warmupFrameBudget ? warmupOnTimeFrames + 1 : 0
-        return warmupOnTimeFrames >= warmupFramesNeeded || warmupTime >= warmupTimeLimit
+        if warmPoses.isEmpty { warmPoses = flyoverWarmPoses() }
+
+        // Stage one: a mesh is uploaded and its shader compiled the first frame it
+        // is actually drawn, so anything the camera would meet for the first time
+        // halfway through the sweep is met here instead. A device that runs out of
+        // the grace period drops the rest of the list rather than the reveal.
+        if warmPoseIndex < warmPoses.count {
+            if warmupTime < warmupPoseLimit {
+                aimCamera(at: warmPoses[warmPoseIndex])
+                warmPoseFrames += 1
+                if warmPoseFrames >= warmupFramesPerPose {
+                    warmPoseIndex += 1
+                    warmPoseFrames = 0
+                }
+                return false
+            }
+            warmPoseIndex = warmPoses.count
+        }
+
+        // Stage two: back on the opening pose, held there until the renderer
+        // delivers frames on time — with a grace period so a slow device still
+        // gets going. Lifting the veil is the last thing this stage does.
+        if !sceneRevealed {
+            aimCamera(at: introStartPose())
+            warmupOnTimeFrames = dt <= warmupFrameBudget ? warmupOnTimeFrames + 1 : 0
+            guard warmupOnTimeFrames >= warmupFramesNeeded || warmupTime >= warmupTimeLimit else {
+                return false
+            }
+            revealScene()
+        }
+
+        // Stage three: the veil fades over a hole standing perfectly still, so the
+        // first thing that moves on this screen is the sweep itself.
+        revealTime += dt
+        return revealTime >= revealHold
+    }
+
+    private func revealScene() {
+        guard !sceneRevealed else { return }
+        sceneRevealed = true
+        controller?.sceneReady = true
+    }
+
+    /// The poses the pre-roll draws: both ends of the sweep and its midpoint.
+    /// Sampled on the first frame rather than at `build`, so the landing pose
+    /// already accounts for the layout pass that sets `aspectFactor`.
+    private func flyoverWarmPoses() -> [(SIMD3<Float>, SIMD3<Float>)] {
+        let start = introStartPose()
+        let end = followPose(ballPosition: lastRestPosition)
+        // Reduce Motion parks the camera where the shot will be played from and the
+        // sweep travels nowhere, so there is only the one pose worth warming.
+        guard simd_distance(start.0, end.0) > 0.01 else { return [start] }
+        let middle = (simd_mix(start.0, end.0, SIMD3(repeating: 0.5)),
+                      simd_mix(start.1, end.1, SIMD3(repeating: 0.5)))
+        return [end, middle, start]
+    }
+
+    private func aimCamera(at pose: (SIMD3<Float>, SIMD3<Float>)) {
+        camPosition = pose.0
+        camLookAt = pose.1
+        camera.look(at: camLookAt, from: camPosition, relativeTo: nil)
     }
 
     /// Freezes both ends of the flyover. The landing pose is sampled from the

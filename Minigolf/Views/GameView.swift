@@ -21,13 +21,32 @@ struct GameContainerView: View {
 
             HUDView(controller: controller)
 
+            // The hole is assembled and warmed up behind this, and the sweep to
+            // the ball only starts once it has gone: building the scene lands as
+            // one long frame and the frames after it are still uploading the
+            // hole, so a camera travelling through them is exactly what looks
+            // like a stutter. The banner above it stays put across the handover.
+            //
+            // The layers from here up are ordered by hand. Declaration order is
+            // only a tie-break on `zIndex`, and a view fading in or out is not
+            // held to it — the cover would come and go underneath the HUD it is
+            // supposed to be covering.
+            if !controller.sceneReady {
+                LoadingVeil(level: controller.currentLevel)
+                    .id(controller.sceneToken)
+                    .transition(.opacity)
+                    .zIndex(1)
+            }
+
             if controller.introRunning {
                 IntroBanner(level: controller.currentLevel)
                     .transition(.opacity)
                     .accessibilityAddTraits(.isHeader)
+                    .zIndex(2)
             }
 
             overlayContent
+                .zIndex(3)
 
             // Above the result card: an unlock announced the moment a hole ends
             // would otherwise be hidden behind it.
@@ -35,12 +54,14 @@ struct GameContainerView: View {
                 ToastView(toast: toast)
                     .motionTransition(.move(edge: .top).combined(with: .opacity))
                     .id(toast.id)
+                    .zIndex(4)
             }
 
             if let achievement = controller.achievementBanner {
                 AchievementBanner(achievement: achievement)
                     .motionTransition(.move(edge: .bottom).combined(with: .opacity))
                     .id(achievement.id)
+                    .zIndex(4)
             }
         }
         // Penalties, unlocks and trophies show themselves for a couple of
@@ -58,6 +79,7 @@ struct GameContainerView: View {
         .motionAnimation(.spring(response: 0.45, dampingFraction: 0.75),
                          value: controller.achievementBanner?.id)
         .animation(.easeInOut(duration: 0.3), value: controller.introRunning)
+        .animation(.easeInOut(duration: 0.28), value: controller.sceneReady)
     }
 
     @ViewBuilder
@@ -317,6 +339,56 @@ private struct AchievementBanner: View {
             .padding(.bottom, 44)
         }
         .allowsHitTesting(false)
+    }
+}
+
+// MARK: - Loading
+
+/// Cover over a hole that is still being put together. It is painted in that
+/// world's own colours, roughly where the hole will put them — sky above, terrain
+/// and felt below — so what fades away is a wash the same shades as the picture
+/// behind it, and the reveal reads as the hole coming into focus rather than as
+/// one screen being swapped for another.
+private struct LoadingVeil: View {
+    let level: LevelDefinition
+    /// A hole normally arrives in a fraction of a second, and a spinner shown for
+    /// three frames only flickers. This one is for the loads that take longer.
+    @State private var showActivity = false
+
+    var body: some View {
+        let theme = level.course.theme
+        ZStack {
+            LinearGradient(
+                stops: [
+                    .init(color: Color(theme.skyTop), location: 0),
+                    .init(color: Color(theme.skyHorizon), location: 0.5),
+                    .init(color: Color(theme.groundColor), location: 0.72),
+                    .init(color: Color(theme.feltTop), location: 1),
+                ],
+                startPoint: .top, endPoint: .bottom)
+
+            VStack {
+                Spacer()
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .tint(.white)
+                    .opacity(showActivity ? 0.85 : 0)
+                    .animation(.easeIn(duration: 0.25), value: showActivity)
+                    .padding(.bottom, 72)
+            }
+        }
+        .ignoresSafeArea()
+        // An opaque cover has to swallow touches as well as light: the pause
+        // button sits underneath it, and a hole paused before it is warm would
+        // wait behind the cover with its pre-roll stopped.
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Loading hole \(level.number)"))
+        .task {
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+            showActivity = true
+        }
     }
 }
 
