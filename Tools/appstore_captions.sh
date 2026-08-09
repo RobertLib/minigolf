@@ -1,18 +1,18 @@
 #!/bin/bash
 #
-# appstore_captions.sh — vypálí popisky do hotových screenshotů.
+# appstore_captions.sh — burns the captions into the finished screenshots.
 #
 #     Tools/appstore_captions.sh
 #
-# Čte AppStore/screenshots/<jazyk>/<zařízení>/NN-*.png a zapisuje stejně
-# pojmenované soubory do AppStore/screenshots-captioned/. Původní sada zůstává
-# nedotčená — nahraj do App Store Connect jednu, nebo druhou.
+# Reads AppStore/screenshots/<locale>/<device>/NN-*.png and writes files of the
+# same name into AppStore/screenshots-captioned/. The original set is left
+# untouched — upload one or the other to App Store Connect.
 #
-# Layout: pruh s textem nahoře, pod ním zmenšený screenshot na tmavě zeleném
-# pozadí. Screenshot se nikde neořezává, jen zmenšuje, takže HUD ani ukazatel
-# síly o nic nepřijdou.
+# Layout: a band of text at the top, below it the shrunken screenshot on a dark
+# green background. The screenshot is never cropped, only scaled down, so
+# neither the HUD nor the power gauge loses anything.
 #
-# Potřebuje ImageMagick (`brew install imagemagick`).
+# Needs ImageMagick (`brew install imagemagick`).
 #
 set -euo pipefail
 
@@ -20,17 +20,17 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SRC_ROOT="${SRC_ROOT:-$ROOT/AppStore/screenshots}"
 OUT_ROOT="${OUT_ROOT:-$ROOT/AppStore/screenshots-captioned}"
 
-# ImageMagick tady nemá zaregistrované žádné fonty, musí se dát cesta k souboru.
-# Arial Bold je jediný tučný řez v systému, který má kompletní českou diakritiku
-# (Arial Rounded Bold nemá ť ani ě, SF se přes IM vykreslí jen v regular).
+# ImageMagick has no fonts registered here, so it needs a path to the file.
+# Arial Bold is the only bold face in the system with complete Czech diacritics
+# (Arial Rounded Bold has neither ť nor ě, and SF only renders in regular via IM).
 FONT="${FONT:-/System/Library/Fonts/Supplemental/Arial Bold.ttf}"
 
-BG_TOP='#123d2b'      # tmavší varianta zelené z hlavního menu
+BG_TOP='#123d2b'      # a darker take on the green from the main menu
 BG_BOTTOM='#061410'
 
-# Popisky podle AppStore/screenshots.md. Číslo odpovídá prefixu souboru.
-# Kde se text nevejde na řádek, je zalomení napsané ručně — automatické by
-# nechalo na druhém řádku viset jediné slovo.
+# The captions from AppStore/screenshots.md. The number matches the file prefix.
+# Where the text does not fit on one line the break is written by hand — an
+# automatic one would leave a single word hanging on the second line.
 cs_caption() {
     case "$1" in
         01) echo "Táhni, pusť, trefa." ;;
@@ -57,8 +57,8 @@ en_caption() {
     esac
 }
 
-# Rozměry na zařízení: plátno, výška textového pruhu, šířka textového bloku,
-# velikost písma. Screenshot se dopočítá tak, aby vyplnil zbytek pod pruhem.
+# Per-device dimensions: canvas, height of the text band, width of the text
+# block, font size. The screenshot is sized to fill the rest below the band.
 geometry_for() {
     case "$1" in
         iphone-6.9) echo "1320 2868 480 1150 96" ;;
@@ -80,8 +80,8 @@ for locale_dir in "$SRC_ROOT"/*; do
         read -r W H BAND BOX PT <<<"$(geometry_for "$device")"
         [ -n "${W:-}" ] || { echo "  skipping unknown device: $device"; continue; }
 
-        # Karta se screenshotem: 3px rámeček plus měkký stín, 22px nad spodní
-        # hranou. Zbytek výšky nad ní patří textu.
+        # The screenshot card: a 3px border plus a soft shadow, 22px above the
+        # bottom edge. Whatever height is left above it belongs to the text.
         margin=22
         border=3
         card_h=$(( H - BAND - margin ))
@@ -90,7 +90,7 @@ for locale_dir in "$SRC_ROOT"/*; do
 
         out="$OUT_ROOT/$locale/$device"
         mkdir -p "$out"
-        printf '\n\033[1m%s / %s\033[0m  (karta %dx%d, pruh %d)\n' "$locale" "$device" "$card_w" "$card_h" "$band_h"
+        printf '\n\033[1m%s / %s\033[0m  (card %dx%d, band %d)\n' "$locale" "$device" "$card_w" "$card_h" "$band_h"
 
         for src in "$device_dir"/*.png; do
             name="$(basename "$src")"
@@ -118,7 +118,7 @@ for locale_dir in "$SRC_ROOT"/*; do
     done
 done
 
-printf '\n\033[1mBezztrátová rekomprese\033[0m\n'
+printf '\n\033[1mLossless recompression\033[0m\n'
 while IFS= read -r f; do
     magick "$f" -strip -define png:compression-level=9 \
                 -define png:compression-filter=5 "$f.opt"
@@ -126,9 +126,9 @@ while IFS= read -r f; do
         mv "$f.opt" "$f"
     else
         rm -f "$f.opt"
-        echo "  ponecháno beze změny (nevyšlo shodně): $f"
+        echo "  left as it was (not bit-identical): $f"
     fi
 done < <(find "$OUT_ROOT" -name '*.png')
 
-printf '\n\033[1mHotovo:\033[0m %s\n' "$OUT_ROOT"
+printf '\n\033[1mDone:\033[0m %s\n' "$OUT_ROOT"
 du -sh "$OUT_ROOT"

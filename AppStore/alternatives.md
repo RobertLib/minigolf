@@ -1,13 +1,14 @@
-# Varianty textů
+# Text alternatives
 
-Kdyby byl zvolený název zabraný nebo bys chtěl zkusit jiné ASO. Čísla v závorce
-jsou počty znaků (limit 30 pro název i podtitul, 100 pro klíčová slova).
+In case the chosen name is taken or you want to try different ASO. The numbers in
+brackets are character counts (the limit is 30 for both the name and the subtitle,
+100 for keywords).
 
-## Název aplikace
+## App name
 
-Používá se: `Minigolf 3D: 108 jamek` / `Minigolf 3D: 108 Holes`
+In use: `Minigolf 3D: 108 jamek` / `Minigolf 3D: 108 Holes`
 
-| Česky | | Anglicky | |
+| Czech | | English | |
 |---|---|---|---|
 | Minigolf 3D: 108 jamek | (22) | Minigolf 3D: 108 Holes | (22) |
 | Minigolf: 9 světů | (17) | Minigolf: Nine Worlds | (21) |
@@ -15,15 +16,15 @@ Používá se: `Minigolf 3D: 108 jamek` / `Minigolf 3D: 108 Holes`
 | Minigolf Mistr | (14) | Minigolf Master 3D | (18) |
 | Kapesní minigolf 3D | (19) | Pocket Minigolf 3D | (18) |
 
-Doporučení: nechat v názvu číslovku („108"). Konkrétní číslo v názvu funguje
-v App Storu líp než přídavná jména a odlišuje hru od desítek generických
-„Mini Golf" titulů.
+Recommendation: keep the number ("108") in the name. A concrete figure works
+better in the App Store than adjectives, and it sets the game apart from the
+dozens of generic "Mini Golf" titles.
 
-## Podtitul
+## Subtitle
 
-Používá se: `108 jamek v 9 světech offline` / `108 holes across nine worlds`
+In use: `108 jamek v 9 světech offline` / `108 holes across nine worlds`
 
-| Česky | | Anglicky | |
+| Czech | | English | |
 |---|---|---|---|
 | 108 jamek v 9 světech offline | (29) | 108 holes across nine worlds | (28) |
 | 9 světů, 108 jamek, bez reklam | (30) | Nine worlds, no ads, offline | (28) |
@@ -31,22 +32,22 @@ Používá se: `108 jamek v 9 světech offline` / `108 holes across nine worlds`
 | Od zahrady po orbitální stanici | (31 ✗) | Garden to orbit, one putt away | (30) |
 | Klasika, led, láva i vesmír | (27) | Grass, ice, lava and orbit | (26) |
 
-## Klíčová slova
+## Keywords
 
-Používá se:
+In use:
 
 ```
 golf,puttování,put,sportovní,arkáda,hra,offline,zábava,děti,rodina,logická,trefa,jamka,míček   (92)
 golf,putt,putting,putter,mini,arcade,sports,offline,course,ball,physics,kids,family,fun,tap    (91)
 ```
 
-Alternativní sady, pokud budeš ladit podle výkonu:
+Alternative sets, if you end up tuning by performance:
 
 ```
-# CZ, důraz na rodinu a nenáročnost
+# CZ, family and easy-going angle
 golf,put,puttování,minigolfové,hřiště,pro děti,rodinná,jednoduchá,relax,offline,zdarma,arkáda   (94)
 
-# CZ, důraz na výzvu a sport
+# CZ, challenge and sport angle
 golf,put,puttování,sport,výzva,obtížná,precizní,fyzika,trofeje,rekordy,arkáda,3D hra,turnaj     (93)
 
 # EN, focus on family / casual
@@ -56,15 +57,17 @@ golf,putt,putting,mini,course,kids,family,casual,relaxing,simple,offline,free,ar
 golf,putt,putter,physics,challenge,skill,precision,levels,trophies,records,arcade,sports,3d     (91)
 ```
 
-Pravidla, ať to nepokazíš při úpravách:
+Rules, so that editing does not break it:
 
-- Oddělovat čárkou **bez mezery za čárkou** — mezera se počítá do limitu 100.
-- Neopakovat slova z názvu ani podtitulu, Apple je indexuje zvlášť.
-- Nepoužívat množná čísla vedle jednotných („jamka" i „jamky"), Apple je páruje sám.
-- Nepsat názvy konkurenčních her — důvod k zamítnutí.
-- Slovo „zdarma"/„free" má smysl jen když hra opravdu je zdarma (což je).
+- Separate with a comma and **no space after the comma** — a space counts towards
+  the limit of 100.
+- Do not repeat words from the name or the subtitle, Apple indexes those separately.
+- Do not put a plural next to its singular ("jamka" and "jamky"), Apple pairs them
+  itself.
+- Do not name competing games — grounds for rejection.
+- The word "zdarma"/"free" is only worth using if the game really is free (it is).
 
-## Kratší popis (kdyby ses rozhodl pro úsečnější verzi)
+## Shorter description (if you decide on a terser version)
 
 **CZ**
 

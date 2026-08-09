@@ -1,122 +1,126 @@
-# Screenshoty a App Preview
+# Screenshots and App Preview
 
-Média se **negenerují ručně a nejsou v gitu** — vyrobí je skripty níž. Nahrávání
-je pak ruční: v App Store Connect je vytáhni myší do sekce *App Preview and
-Screenshots* (přepínač jazyka nahoře, každá lokalizace zvlášť).
+The media is **not made by hand and is not in git** — the scripts below produce
+it. Uploading is manual: in App Store Connect drag the files into the *App Preview
+and Screenshots* section (language switch at the top, one locale at a time).
 
-## Co skripty vyrobí
+## What the scripts produce
 
-| Co | Kam | Rozlišení | Kusů |
+| What | Where | Resolution | Count |
 |---|---|---|---|
-| Screenshoty iPhone 6.9" | `screenshots/<jazyk>/iphone-6.9/` | 1320 × 2868 | 8 |
-| Screenshoty iPad 13" | `screenshots/<jazyk>/ipad-13/` | 2064 × 2752 | 8 |
-| Totéž s popisky | `screenshots-captioned/<jazyk>/<zařízení>/` | stejné | 8 + 8 |
-| App Preview iPhone 6.9" | `preview/<jazyk>/iphone-6.9.mp4` | 1290 × 2796, 30 fps, 26,5 s | 1 |
-| App Preview iPad 13" | `preview/<jazyk>/ipad-13.mp4` | 1200 × 1600, 30 fps, 26,6 s | 1 |
+| iPhone 6.9" screenshots | `screenshots/<locale>/iphone-6.9/` | 1320 × 2868 | 8 |
+| iPad 13" screenshots | `screenshots/<locale>/ipad-13/` | 2064 × 2752 | 8 |
+| The same with captions | `screenshots-captioned/<locale>/<device>/` | same | 8 + 8 |
+| iPhone 6.9" App Preview | `preview/<locale>/iphone-6.9.mp4` | 1290 × 2796, 30 fps, 26.5 s | 1 |
+| iPad 13" App Preview | `preview/<locale>/ipad-13.mp4` | 1200 × 1600, 30 fps, 26.6 s | 1 |
 
-Dohromady 79 MB screenshotů, 80 MB varianty s popisky a 136 MB videí.
+79 MB of screenshots, 80 MB for the captioned variant and 136 MB of video in total.
 
 ```bash
-Tools/appstore_media.sh              # screenshoty i videa (~20 min)
-Tools/appstore_media.sh screenshots  # jen screenshoty (~8 min)
-Tools/appstore_media.sh video        # jen videa (~12 min)
-Tools/appstore_captions.sh           # dorazí popisky do hotových screenshotů (~2 min)
+Tools/appstore_media.sh              # screenshots and videos (~20 min)
+Tools/appstore_media.sh screenshots  # screenshots only (~8 min)
+Tools/appstore_media.sh video        # videos only (~12 min)
+Tools/appstore_captions.sh           # paints captions onto finished screenshots (~2 min)
 ```
 
-Jazyky jsou `cs` a `en-US`, všechno v portrétu. **Nahraj buď sadu s popisky, nebo
-bez nich** — obě mají stejná jména souborů i pořadí, liší se jen tím pruhem
-nahoře. Popisky nejsou povinné, ale zvedají konverzi.
+The locales are `cs` and `en-US`, everything in portrait. **Upload either the
+captioned set or the plain one** — both have the same file names and order, they
+differ only in the band at the top. Captions are not compulsory, but they lift
+conversion.
 
-Screenshoty jsou 8bitové PNG bez alfa kanálu (simulátor ho zapisuje, i když je
-celý neprůhledný, a App Store Connect průhlednost nechce) a prošly bezztrátovou
-rekompresí — ověřeno `magick compare -metric AE` = 0.
+The screenshots are 8-bit PNGs with no alpha channel (the simulator writes one
+even when it is fully opaque, and App Store Connect does not want transparency)
+and have been through a lossless recompression — verified with
+`magick compare -metric AE` = 0.
 
-`appstore_media.sh` potřebuje Xcode, simulátory *iPhone 17 Pro Max* a
-*iPad Pro 13-inch (M5)* a ImageMagick (`brew install imagemagick`). Staví Debug —
-všechny přepínače níže jsou pod `#if DEBUG` a do App Store buildu se nedostanou.
-`appstore_captions.sh` jen přemaluje už hotové PNG, simulátor nepotřebuje.
+`appstore_media.sh` needs Xcode, the *iPhone 17 Pro Max* and
+*iPad Pro 13-inch (M5)* simulators and ImageMagick (`brew install imagemagick`).
+It builds Debug — every flag below sits under `#if DEBUG` and never reaches an
+App Store build. `appstore_captions.sh` only repaints finished PNGs and needs no
+simulator.
 
-### Proč to není v gitu
+### Why it is not in git
 
-Skoro 300 MB obrázků a videa jsou výstup, ne zdroj — zdroj je tenhle popis
-a skripty v `Tools/`. PNG už je komprimovaný, takže se v gitu nezmenší
-a v historii by zůstal navždy; a protože se mlýny a kyvadla točí dál, není
-sada bajtově reprodukovatelná — každé přegenerování by přidalo dalších 85 MB
-nových blobů, ne diff.
+Almost 300 MB of images and video are output, not source — the source is this
+description and the scripts in `Tools/`. A PNG is already compressed, so git
+cannot shrink it and it would stay in the history for good; and because the
+windmills and pendulums keep turning, the set is not byte-reproducible — every
+regeneration would add another 85 MB of new blobs, not a diff.
 
-Záznam o tom, co se opravdu vydalo, drží App Store Connect u každé verze.
-Kdyby ses k přesným souborům potřeboval vracet i lokálně, přibal je jako ZIP
-k releasu u příslušného tagu — do historie repa se tím nedostanou.
+App Store Connect keeps the record of what was actually shipped with each version.
+If you ever need the exact files locally as well, attach them as a ZIP to the
+release on the matching tag — that keeps them out of the repository history.
 
-## Co Apple vyžaduje
+## What Apple requires
 
-Aplikace cílí na iPhone i iPad (`TARGETED_DEVICE_FAMILY = "1,2"`), takže jsou
-povinné **dvě sady** screenshotů. Menší velikosti si Apple dopočítá sám.
+The app targets iPhone and iPad (`TARGETED_DEVICE_FAMILY = "1,2"`), so **two sets**
+of screenshots are mandatory. Apple derives the smaller sizes itself.
 
-| Sada | Rozlišení (portrét) | Rozlišení (landscape) | Počet |
+| Set | Resolution (portrait) | Resolution (landscape) | Count |
 |---|---|---|---|
-| iPhone 6.9" | 1290 × 2796 nebo 1320 × 2868 | 2796 × 1290 nebo 2868 × 1320 | 3–10 |
-| iPad 13" | 2048 × 2732 nebo 2064 × 2752 | 2732 × 2048 nebo 2752 × 2064 | 3–10 |
+| iPhone 6.9" | 1290 × 2796 or 1320 × 2868 | 2796 × 1290 or 2868 × 1320 | 3–10 |
+| iPad 13" | 2048 × 2732 or 2064 × 2752 | 2732 × 2048 or 2752 × 2064 | 3–10 |
 
-Formát PNG nebo JPEG, bez průhlednosti, bez zaoblených rohů, bez rámečku
-zařízení (rámeček je povolený, ale musí být součástí obrázku a nesmí zakrývat
-obsah). Řadí se v pořadí, v jakém je nahraješ — **první dva jsou to jediné, co
-většina lidí uvidí** ve výsledcích vyhledávání.
+PNG or JPEG, no transparency, no rounded corners, no device frame (a frame is
+allowed, but it has to be part of the image and must not cover the content). They
+are ordered the way you upload them — **the first two are all most people will
+ever see** in search results.
 
-App Preview je volitelný, 15–30 s, H.264 nebo ProRes 422 HQ, 30 fps. Zvuk není
-povinný a hotová videa ho nemají — simulátor audio nenahrává a komentář by stejně
-musel být lokalizovaný.
+The App Preview is optional, 15–30 s, H.264 or ProRes 422 HQ, 30 fps. Sound is not
+required and the finished videos have none — the simulator does not record audio
+and a voiceover would have to be localised anyway.
 
-## Sada (8 obrázků)
+## The set (8 images)
 
-Pořadí je zároveň pořadím nahrávání. Argumenty se dají zadat i ručně v Xcode:
-**Product → Scheme → Edit Scheme → Run → Arguments → Arguments Passed On Launch**.
+The order is also the upload order. The arguments can be entered by hand in Xcode
+too: **Product → Scheme → Edit Scheme → Run → Arguments → Arguments Passed On Launch**.
 
-| # | Soubor | Obrazovka | Argumenty |
+| # | File | Screen | Arguments |
 |---|---|---|---|
-| 1 | `01-aim` | Zelená zahrada, jamka 6 — větrník a naváděcí čára | `-autostart garden 6 -aimdemo 0.7 -zoom 1.8` |
-| 2 | `02-neon` | Neonové noci, jamka 12 — rotor | `-autostart neon 12 -aimdemo 0.6 -zoom 1.35` |
-| 3 | `03-worlds` | Výběr kurzu se všemi devíti světy | `-courseselect -unlockall` |
-| 4 | `04-volcano` | Vulkanická výheň, jamka 10 — láva a pásy | `-autostart volcano 10 -aimdemo 0.55 -zoom 1.3` |
-| 5 | `05-cosmos` | Orbitální stanice, jamka 6 — centrifuga a looping | `-autostart cosmos 6 -aimdemo 0.6 -zoom 1.35` |
-| 6 | `06-rating` | Závěrečné hodnocení a výsledková listina | `-finalrating -unlockall` |
-| 7 | `07-clubhouse` | Klubovna — míčky, kariéra, trofeje | `-clubhouse -unlockall` |
-| 8 | `08-daily` | Denní výzva | `-daily -aimdemo 0.6 -zoom 1.5` |
+| 1 | `01-aim` | Green Garden, hole 6 — windmill and aim line | `-autostart garden 6 -aimdemo 0.7 -zoom 1.8` |
+| 2 | `02-neon` | Neon Nights, hole 12 — rotor | `-autostart neon 12 -aimdemo 0.6 -zoom 1.35` |
+| 3 | `03-worlds` | Course select with all nine worlds | `-courseselect -unlockall` |
+| 4 | `04-volcano` | Volcano Forge, hole 10 — lava and belts | `-autostart volcano 10 -aimdemo 0.55 -zoom 1.3` |
+| 5 | `05-cosmos` | Orbital Station, hole 6 — centrifuge and loop | `-autostart cosmos 6 -aimdemo 0.6 -zoom 1.35` |
+| 6 | `06-rating` | Final rating and scorecard | `-finalrating -unlockall` |
+| 7 | `07-clubhouse` | Clubhouse — balls, career, trophies | `-clubhouse -unlockall` |
+| 8 | `08-daily` | Daily Challenge | `-daily -aimdemo 0.6 -zoom 1.5` |
 
-### Debug přepínače
+### Debug flags
 
-| Přepínač | Co dělá |
+| Flag | What it does |
 |---|---|
-| `-autostart <svět> <jamka>` | skočí rovnou do jamky |
-| `-aimdemo [0…1]` | drží míření na jamku, aby šla naváděcí čára vyfotit |
-| `-zoom <0,7…1,8>` | zafixuje pinch zoom kamery, aby se do záběru vešla celá dráha |
-| `-unlockall` | dosadí věrohodný postup i kariérní statistiky pro záběry menu (na disk se nezapisuje) |
-| `-courseselect`, `-clubhouse`, `-daily`, `-finalrating`, `-holeselect <svět>` | otevře danou obrazovku |
-| `-autoshot`, `-autowin`, `-autoadvance` | hraje samo — použité pro video |
+| `-autostart <world> <hole>` | jumps straight into the hole |
+| `-aimdemo [0…1]` | holds the aim on the cup so the aim line can be photographed |
+| `-zoom <0.7…1.8>` | pins the camera pinch zoom so the whole lane fits into the frame |
+| `-unlockall` | fills in believable progress and career statistics for menu shots (nothing is written to disk) |
+| `-courseselect`, `-clubhouse`, `-daily`, `-finalrating`, `-holeselect <world>` | opens that screen |
+| `-autoshot`, `-autowin`, `-autoadvance` | plays by itself — used for the video |
 
-`-zoom` násobí `cameraZoom` dané jamky, takže hodnoty v tabulce se mezi jamkami
-liší; cíl je vždy dostat do záběru míček i jamku. Jsou zvolené tak, aby výsledný
-zoom vyšel kolem 1,8 — tam jsou stíny ještě v pořádku. Při hodně odzoomované
-kameře začnou vypadávat, protože kaskáda stínové mapy je kratší než dohled kamery.
+`-zoom` multiplies the given hole's `cameraZoom`, so the values in the table differ
+from hole to hole; the goal is always to get both the ball and the cup into frame.
+They are chosen so that the resulting zoom lands around 1.8 — the shadows are still
+fine there. With the camera zoomed far out they start dropping away, because the
+shadow map cascade is shorter than the camera's view distance.
 
-Přegenerování nedá pixelově shodné soubory: mlýny, rotory a kyvadla se točí dál
-a zaměřovací kroužek pulzuje, takže je pokaždé zastihneš v jiné fázi. Kompozice
-i rozlišení ale sedí — statické obrazovky (`03-worlds`, `06-rating`) vyjdou
-shodně.
+Regenerating does not give pixel-identical files: the windmills, rotors and
+pendulums keep turning and the aiming ring pulses, so you catch them in a different
+phase every time. The composition and the resolutions do match, though — the static
+screens (`03-worlds`, `06-rating`) come out identical.
 
-## Popisky do obrázků
+## Captions on the images
 
-Vyrobí je [`Tools/appstore_captions.sh`](../Tools/appstore_captions.sh) z čisté
-sady do `screenshots-captioned/`.
+[`Tools/appstore_captions.sh`](../Tools/appstore_captions.sh) makes them from the
+plain set into `screenshots-captioned/`.
 
-Layout: pruh s textem nahoře, pod ním zmenšený screenshot na tmavě zelené
-(odvozené z gradientu hlavního menu) s tenkým rámečkem a měkkým stínem. Herní
-záběr se nikde neořezává, jen zmenšuje — HUD nahoře ani ukazatel síly dole tak
-o nic nepřijdou. Text je Arial Bold; je to jediný tučný řez v systému
-s kompletní českou diakritikou (Arial Rounded Bold nemá `ť` ani `ě`
-a SF se přes ImageMagick vykreslí jen v regular).
+Layout: a band of text at the top, below it the shrunken screenshot on dark green
+(derived from the main menu gradient) with a thin border and a soft shadow. The
+game shot is never cropped, only scaled down — so neither the HUD at the top nor
+the power gauge at the bottom loses anything. The text is Arial Bold; it is the
+only bold face in the system with complete Czech diacritics (Arial Rounded Bold has
+neither `ť` nor `ě`, and SF only renders in regular through ImageMagick).
 
-| # | Česky | English |
+| # | Czech | English |
 |---|---|---|
 | 1 | Táhni, pusť, trefa. | Drag, release, sink it. |
 | 2 | 9 světů, 108 jamek | 9 worlds, 108 holes |
@@ -127,15 +131,16 @@ a SF se přes ImageMagick vykreslí jen v regular).
 | 7 | 14 míčků, 18 trofejí | 14 balls, 18 trophies |
 | 8 | Nová jamka každý den | A new hole every day |
 
-U šestky je použitá delší varianta z tabulky níž — původní „Hole-in-one? Zkus
-to." mířila na hlášení po dokončení jamky, jenže záběr je nakonec závěrečná
-výsledková listina, kam se hodí spíš výčet skóre. Texty se mění v obou funkcích
-`cs_caption` / `en_caption` ve skriptu; zalomení delších popisků je tam napsané
-ručně, aby na druhém řádku neviselo jediné slovo.
+Number six uses the longer variant from the table below — the original "Hole-in-one?
+Zkus to." aimed at the message shown after a finished hole, but the shot ended up
+being the final scorecard, which suits a list of scores better. The texts are edited
+in both the `cs_caption` / `en_caption` functions in the script; the line breaks in
+the longer captions are written by hand there, so that no single word is left
+hanging on the second line.
 
-Delší varianty, kdyby byl na obrázku prostor na dva řádky:
+Longer variants, if there is room for two lines on the image:
 
-| # | Česky | English |
+| # | Czech | English |
 |---|---|---|
 | 1 | Naváděcí čára ukáže i odrazy od mantinelů | The aim line shows your bank shots |
 | 2 | 108 ručně navržených jamek v devíti světech | 108 hand-designed holes, nine worlds |
@@ -148,33 +153,33 @@ Delší varianty, kdyby byl na obrázku prostor na dva řádky:
 
 ## App Preview (video)
 
-Video je čistě záznam hry, bez loga a bez titulků — začíná odpalem, protože
-prvních pár sekund rozhoduje. Skládá se ze šesti střihů:
+The video is pure gameplay, no logo and no titles — it opens on a putt, because the
+first few seconds are what decide. It is made of six cuts:
 
-| # | Záběr | Co je vidět |
+| # | Shot | What is on screen |
 |---|---|---|
-| 1 | Zelená zahrada, jamka 1 | odpal, míček padá do jamky, hlášení PAR |
-| 2 | Neonové noci, jamka 3 | odrazy mezi pinballovými bumpery |
-| 3 | Zamrzlý fjord, jamka 10 | ledové pásy, proměna na BIRDIE |
-| 4 | Vulkanická výheň, jamka 10 | jízda kolem lávy |
-| 5 | Orbitální stanice, jamka 6 | roztočená centrifuga |
-| 6 | Závěrečné hodnocení | „Profesionální golfista" a výsledky |
+| 1 | Green Garden, hole 1 | the putt, the ball dropping in, the PAR message |
+| 2 | Neon Nights, hole 3 | bouncing between the pinball bumpers |
+| 3 | Frozen Fjord, hole 10 | ice belts, turning into a BIRDIE |
+| 4 | Volcano Forge, hole 10 | a run past the lava |
+| 5 | Orbital Station, hole 6 | the centrifuge spun up |
+| 6 | Final rating | "Pro Golfer" and the results |
 
-Hraje to samo (`-autoshot -autoadvance`) a fyzika je deterministická, takže
-stejné argumenty dají pokaždé stejný záznam — střihové body v
-`Tools/appstore_media.sh` (`IPHONE_CUTS`, `IPAD_CUTS`) proto sedí i po
-přegenerování. iPad má vlastní body, protože se k jednotlivým jamkám dostane
-o kus dřív než iPhone.
+It plays itself (`-autoshot -autoadvance`) and the physics is deterministic, so the
+same arguments give the same recording every time — which is why the cut points in
+`Tools/appstore_media.sh` (`IPHONE_CUTS`, `IPAD_CUTS`) still line up after
+a regeneration. The iPad has its own points, because it reaches each hole a little
+sooner than the iPhone.
 
-Simulátor nahrává ~72 fps, což App Store Connect odmítne;
-[`Tools/appstore_video.swift`](../Tools/appstore_video.swift) záznam přestříhá,
-zmenší na cílové rozlišení a vyexportuje H.264 na 30 fps.
+The simulator records at ~72 fps, which App Store Connect rejects;
+[`Tools/appstore_video.swift`](../Tools/appstore_video.swift) recuts the recording,
+scales it to the target resolution and exports H.264 at 30 fps.
 
-iPhone video je 1290 × 2796 — záznam ze simulátoru (1320 × 2868) má o chlup jiný
-poměr stran, takže se zmenší na šířku a pár řádků nahoře a dole se ořízne, aby se
-obraz nedeformoval. Kdyby App Store Connect na tomhle rozlišení trval na jiném,
-přegeneruje se natvrdo:
+The iPhone video is 1290 × 2796 — the simulator recording (1320 × 2868) has
+a marginally different aspect ratio, so it is scaled to width and a few rows are
+cropped top and bottom to keep the image undistorted. Should App Store Connect
+insist on something else at this resolution, force a regeneration:
 
 ```bash
-swift Tools/appstore_video.swift out.mp4 1320 2868 <klip>:<od>:<do> …
+swift Tools/appstore_video.swift out.mp4 1320 2868 <clip>:<from>:<to> …
 ```

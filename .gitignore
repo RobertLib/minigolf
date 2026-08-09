@@ -14,12 +14,13 @@ DerivedData/
 .swiftpm/
 .build/
 
-# App Store média. Verzují se jen texty v AppStore/ a skripty v Tools/ —
-# obrázky a videa jsou výstup, ne zdroj, PNG se v gitu už nezkomprimuje
-# a v historii by zůstaly navždy. Vyrobí je:
+# App Store media. Only the texts in AppStore/ and the scripts in Tools/ are
+# versioned — the images and videos are output, not source, a PNG will not
+# compress any further in git and they would stay in the history for good.
+# They are produced by:
 #   Tools/appstore_media.sh      → screenshots/ (~85 MB) + preview/ (~134 MB), ~20 min
 #   Tools/appstore_captions.sh   → screenshots-captioned/ (~78 MB), ~2 min
-# Podrobnosti v AppStore/screenshots.md.
+# Details in AppStore/screenshots.md.
 AppStore/screenshots/
 AppStore/screenshots-captioned/
 AppStore/preview/

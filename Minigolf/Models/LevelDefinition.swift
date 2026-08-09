@@ -281,6 +281,135 @@ func wall(_ x0: Float, _ z0: Float, _ x1: Float, _ z1: Float,
     WallSegment(from: SIMD2(x0, z0), to: SIMD2(x1, z1), baseY: baseY, height: height)
 }
 
+/// Boards along an open run of points. `wallLoops` closes and always stands on
+/// the ground; this does neither, so it is what a raised green and a half-open
+/// outline are kerbed with.
+func wallPath(_ points: [SIMD2<Float>], baseY: Float = 0,
+              height: Float = 0.085) -> [WallSegment] {
+    zip(points, points.dropFirst()).map {
+        WallSegment(from: $0.0, to: $0.1, baseY: baseY, height: height)
+    }
+}
+
+/// Boards all the way round a closed outline standing on a raised green. The
+/// board is tall enough to retain the green it stands beside *and* to guard the
+/// floor at its own foot, which is how one kerb serves both heights.
+func wallRing(_ points: [SIMD2<Float>], baseY: Float = 0,
+              height: Float = 0.085) -> [WallSegment] {
+    guard points.count > 1 else { return [] }
+    return wallPath(points + [points[0]], baseY: baseY, height: height)
+}
+
+
+// MARK: - Rounded greens
+
+/// How a corner of `radius` is stepped, as fractions of that radius: the run
+/// along each axis from the corner point of the square towards the arc.
+///
+/// An axis-aligned floor cannot hold a curve, and a kerb cutting straight
+/// across a step leaves the felt behind it unguarded — so how sharply a corner
+/// may be rounded is a function of how many boards cut it. The checker allows a
+/// 10 cm unguarded run, which works out at **0.17 m of radius per step**: one
+/// board gives a chamfer, two a soft corner, three a corner that reads as
+/// round. Going past that leaves a lip of felt outside the kerb.
+private func cornerSteps(_ steps: Int) -> [(cos: Float, sin: Float)] {
+    (0...max(1, steps)).map { k in
+        let angle = Float.pi / 2 * Float(k) / Float(max(1, steps))
+        return (cos(angle), sin(angle))
+    }
+}
+
+/// The largest radius `steps` boards can round a corner with before the felt
+/// starts showing outside the kerb: one board gives a chamfer, two a soft
+/// corner, three a corner that reads as round from the tee.
+func maxCornerRadius(steps: Int) -> Float { 0.15 * Float(max(1, steps)) }
+
+/// Outline of a rectangle rounded at one or both ends — the kerb line of a
+/// target green. Holes run away from the tee toward −Z, so `far` rounds the two
+/// corners at `z0` and `near` the two at `z1`.
+///
+/// The run of points starts and ends on the near edge, so `wallPath` boards
+/// everything **but** that edge: the kerb of a green a lane runs straight into.
+/// Passing the same points to `wallLoops` closes it instead, for a green that
+/// stands on its own.
+func roundedLoop(_ x0: Float, _ x1: Float, _ z0: Float, _ z1: Float,
+                 far: Float, near: Float = 0, steps: Int = 2) -> [SIMD2<Float>] {
+    let arc = cornerSteps(steps)
+    var out: [SIMD2<Float>] = []
+
+    if near > 0.001 {
+        let c = SIMD2(x0 + near, z1 - near)
+        out += arc.map { c + SIMD2(-near * $0.sin, near * $0.cos) }
+    } else {
+        out.append(SIMD2(x0, z1))
+    }
+
+    if far > 0.001 {
+        let c = SIMD2(x0 + far, z0 + far)
+        out += arc.map { c + SIMD2(-far * $0.cos, -far * $0.sin) }
+        let d = SIMD2(x1 - far, z0 + far)
+        out += arc.map { d + SIMD2(far * $0.sin, -far * $0.cos) }
+    } else {
+        out += [SIMD2(x0, z0), SIMD2(x1, z0)]
+    }
+
+    if near > 0.001 {
+        let c = SIMD2(x1 - near, z1 - near)
+        out += arc.map { c + SIMD2(near * $0.cos, near * $0.sin) }
+    } else {
+        out.append(SIMD2(x1, z1))
+    }
+
+    return out
+}
+
+/// Boards round a green shaped with `roundedLoop`, leaving its near edge open —
+/// that is where the lane joins it. `openFar` leaves the far edge open too, for
+/// a green with a shaft going on out of it; the stubs either side of a mouth
+/// belong to the caller, since only the hole knows how wide the mouth is.
+func roundedKerb(_ x0: Float, _ x1: Float, _ z0: Float, _ z1: Float,
+                 far: Float, near: Float = 0, steps: Int = 2, openFar: Bool = false,
+                 baseY: Float = 0, height: Float = 0.085) -> [WallSegment] {
+    let boards = wallPath(roundedLoop(x0, x1, z0, z1, far: far, near: near, steps: steps),
+                          baseY: baseY, height: height)
+    guard openFar else { return boards }
+    // The far edge is the one board that runs straight along z0.
+    return boards.filter {
+        !(abs($0.from.y - z0) < 0.001 && abs($0.to.y - z0) < 0.001)
+    }
+}
+
+/// The felt inside a `roundedLoop`, laid in courses like stone: one wide band
+/// across the middle and a narrower one for every step of the rounding, so the
+/// corners the kerb cuts are left to the paving rather than paved in felt.
+/// Give it the same arguments as the loop; the two only agree while that holds.
+func roundedFloor(_ x0: Float, _ x1: Float, _ z0: Float, _ z1: Float,
+                  far: Float, near: Float = 0, steps: Int = 2,
+                  kind: FloorPatch.Kind = .green, y: Float = 0) -> [FloorPatch] {
+    let arc = cornerSteps(steps)
+    var out = [FloorPatch(rect: GroundRect(x0: x0, x1: x1, z0: z0 + far, z1: z1 - near),
+                          kind: kind, y: y)]
+    for k in arc.indices.dropLast() {
+        // Each course stops at the narrow end of the step it spans, so the
+        // board cutting across that step always has felt behind it.
+        if far > 0.001 {
+            let inset = far * (1 - arc[k + 1].cos)
+            out.append(FloorPatch(
+                rect: GroundRect(x0: x0 + inset, x1: x1 - inset,
+                                 z0: z0 + far * (1 - arc[k + 1].sin),
+                                 z1: z0 + far * (1 - arc[k].sin)), kind: kind, y: y))
+        }
+        if near > 0.001 {
+            let inset = near * (1 - arc[k + 1].cos)
+            out.append(FloorPatch(
+                rect: GroundRect(x0: x0 + inset, x1: x1 - inset,
+                                 z0: z1 - near * (1 - arc[k].sin),
+                                 z1: z1 - near * (1 - arc[k + 1].sin)), kind: kind, y: y))
+        }
+    }
+    return out
+}
+
 /// Points along a circular arc on the XZ plane. Angles are in radians and are
 /// measured the same way the rest of the level data reads them: 0 points at +X,
 /// 90° at +Z. Handy for rounded bowls and banked turns, which a hand-written

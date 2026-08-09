@@ -24,44 +24,9 @@
 import Foundation
 import simd
 
-let ballRadius: Float = 0.034
 
 // MARK: - Small geometry helpers
 
-struct Seg {
-    var a: SIMD2<Float>
-    var b: SIMD2<Float>
-    var baseY: Float
-    var height: Float
-    var thickness: Float = 0.055
-
-    func distance(to p: SIMD2<Float>) -> Float {
-        let d = b - a
-        let len2 = simd_length_squared(d)
-        guard len2 > 1e-9 else { return simd_distance(p, a) }
-        let t = simd_clamp(simd_dot(p - a, d) / len2, 0, 1)
-        return simd_distance(p, a + d * t)
-    }
-
-    /// A wall only guards the surface it actually stands beside.
-    func guards(y: Float) -> Bool {
-        baseY <= y + 0.002 && baseY + height > y + 0.02
-    }
-}
-
-func walls(of level: LevelDefinition) -> [Seg] {
-    var out: [Seg] = []
-    for loop in level.wallLoops {
-        for i in 0..<loop.count {
-            out.append(Seg(a: loop[i], b: loop[(i + 1) % loop.count], baseY: 0, height: 0.085))
-        }
-    }
-    for w in level.extraWalls {
-        out.append(Seg(a: w.from, b: w.to, baseY: w.baseY, height: w.height,
-                       thickness: w.thickness))
-    }
-    return out
-}
 
 func touches(_ a: GroundRect, _ b: GroundRect, slack: Float = 0.02) -> Bool {
     a.minX - slack < b.maxX && b.minX - slack < a.maxX &&
@@ -80,20 +45,6 @@ func contains(_ outer: GroundRect, _ inner: GroundRect) -> Bool {
 
 // MARK: - Obstacle introspection
 
-/// Everywhere a critter's rounds take it: the cup, the tee and the floor all
-/// have to be judged against the whole path, not just where it starts.
-func critterPoints(_ center: SIMD2<Float>, _ motion: CritterMotion) -> [SIMD2<Float>] {
-    switch motion {
-    case .patrol(let axis, let amplitude), .hop(let axis, let amplitude, _):
-        let unit = simd_length(axis) > 0 ? simd_normalize(axis) : SIMD2(1, 0)
-        return [center, center + unit * amplitude, center - unit * amplitude]
-    case .circle(let radius):
-        return [center, center + SIMD2(radius, 0), center - SIMD2(radius, 0),
-                center + SIMD2(0, radius), center - SIMD2(0, radius)]
-    case .burrow:
-        return [center]
-    }
-}
 
 /// Points an obstacle occupies that the ball must not find the cup underneath.
 func blockingPoints(_ spec: ObstacleSpec) -> [SIMD2<Float>] {
@@ -169,29 +120,6 @@ func footprint(_ spec: ObstacleSpec) -> [SIMD2<Float>] {
     }
 }
 
-/// Where a kicker drops the ball again on level ground: a plain ballistic arc
-/// at the fixed speed and lift the pad hands out.
-func jumpLanding(_ c: SIMD2<Float>, _ direction: SIMD2<Float>,
-                 speed: Float, lift: Float) -> SIMD2<Float> {
-    let unit = simd_length(direction) > 0 ? simd_normalize(direction) : SIMD2(0, -1)
-    return c + unit * (2 * speed * lift / 9.81)
-}
-
-func obstacleY(_ spec: ObstacleSpec) -> Float {
-    switch spec {
-    case .rotor(_, _, _, let y), .movingBlock(_, _, _, _, _, let y),
-         .block(_, _, _, let y), .slope(_, _, _, let y), .conveyor(_, _, _, let y),
-         .teleporter(_, _, _, let y), .gate(_, _, _, _, _, let y),
-         .pendulum(_, _, _, _, _, let y), .boostPad(_, _, _, let y),
-         .loop(_, _, _, _, let y), .launchPad(_, _, _, _, let y),
-         .cannon(_, _, _, let y), .turntable(_, _, _, let y),
-         .magnet(_, _, _, let y), .fan(_, _, _, _, _, let y),
-         .critter(_, _, _, _, _, let y):
-        return y
-    default:
-        return 0
-    }
-}
 
 func obstacleName(_ spec: ObstacleSpec) -> String {
     switch spec {
@@ -517,87 +445,6 @@ func checkReachability(_ level: LevelDefinition) {
 
 // MARK: - Fine-grained path check
 
-/// Something solid the rolling ball has to go around, seen from above. Moving
-/// parts (gates, sliding blocks, rotors, pendulums) are left out on purpose:
-/// they always open up again.
-struct Blocker {
-    enum Shape {
-        case segment(a: SIMD2<Float>, b: SIMD2<Float>, halfThickness: Float)
-        case circle(center: SIMD2<Float>, radius: Float)
-        case box(center: SIMD2<Float>, half: SIMD2<Float>, yaw: Float)
-    }
-
-    var shape: Shape
-    var baseY: Float
-    var height: Float
-
-    func guards(y: Float) -> Bool {
-        baseY <= y + 0.002 && baseY + height > y + 0.02
-    }
-
-    /// True when a ball centred on `p` would overlap this obstacle.
-    func blocks(_ p: SIMD2<Float>) -> Bool {
-        let slack: Float = 0.001
-        switch shape {
-        case .segment(let a, let b, let half):
-            let seg = Seg(a: a, b: b, baseY: 0, height: 0)
-            return seg.distance(to: p) < half + ballRadius - slack
-        case .circle(let c, let r):
-            return simd_distance(p, c) < r + ballRadius - slack
-        case .box(let c, let half, let yaw):
-            let d = p - c
-            let local = SIMD2(d.x * cos(yaw) - d.y * sin(yaw),
-                              d.x * sin(yaw) + d.y * cos(yaw))
-            return abs(local.x) < half.x + ballRadius - slack &&
-                   abs(local.y) < half.y + ballRadius - slack
-        }
-    }
-}
-
-func blockers(of level: LevelDefinition) -> [Blocker] {
-    var out: [Blocker] = []
-    for w in walls(of: level) {
-        out.append(Blocker(shape: .segment(a: w.a, b: w.b, halfThickness: w.thickness / 2),
-                           baseY: w.baseY, height: w.height))
-    }
-    for spec in level.obstacles {
-        switch spec {
-        case .bumper(let c, let r), .post(let c, let r):
-            out.append(Blocker(shape: .circle(center: c, radius: r), baseY: 0, height: 0.09))
-        case .block(let c, let size, let yaw, let baseY):
-            out.append(Blocker(shape: .box(center: c, half: SIMD2(size.x / 2, size.z / 2),
-                                           yaw: yaw),
-                               baseY: baseY, height: size.y))
-        case .tunnel(let c, let width, let length, let yaw):
-            // Two side walls along the local Z axis; the roof clears the ball.
-            let along = SIMD2(sin(yaw), cos(yaw))
-            let across = SIMD2(cos(yaw), -sin(yaw))
-            for side: Float in [-1, 1] {
-                let mid = c + across * (side * (width / 2 + 0.025))
-                out.append(Blocker(
-                    shape: .segment(a: mid - along * (length / 2), b: mid + along * (length / 2),
-                                    halfThickness: 0.025),
-                    baseY: 0, height: 0.16))
-            }
-        case .loop(let c, let radius, let width, let yaw, let y):
-            // The ring is overhead; only the boards funnelling into it block.
-            let along = SIMD2(sin(yaw), cos(yaw))
-            let across = SIMD2(cos(yaw), -sin(yaw))
-            let half = max(0.06, width / 2) + 0.028
-            let length = 2 * radius + 0.12
-            for side: Float in [-1, 1] {
-                let mid = c + across * (side * half)
-                out.append(Blocker(
-                    shape: .segment(a: mid - along * (length / 2), b: mid + along * (length / 2),
-                                    halfThickness: 0.0275),
-                    baseY: y, height: 0.085))
-            }
-        default:
-            break
-        }
-    }
-    return out
-}
 
 /// Flood fills the playable surface on a fine grid — walls and static obstacles
 /// included — and checks that the ball can actually roll from the tee to the
