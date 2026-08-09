@@ -7,6 +7,7 @@
 //  without launching the app:
 //
 //      swiftc -O -o /tmp/validate Tools/validate_levels.swift \
+//          Tools/LevelGeometry.swift \
 //          Minigolf/Support/MathHelpers.swift \
 //          Minigolf/Models/CourseType.swift \
 //          Minigolf/Models/LevelDefinition.swift \
@@ -529,6 +530,11 @@ func checkBallPaths(_ level: LevelDefinition) {
     for spec in level.obstacles {
         switch spec {
         case .ramp(let c, let width, let length, let rise, let yaw):
+            guard rampIsClear(center: c, width: width, length: length, rise: rise,
+                              yaw: yaw, through: solids) else {
+                fail(level, "ramp \(fmt(c)) is walled off — nothing can climb it")
+                continue
+            }
             let along = SIMD2(sin(yaw), cos(yaw))
             let foot = cells(near: c + along * (length / 2 + 0.04), y: 0, radius: width / 2)
             let top = cells(near: c - along * (length / 2 + 0.04), y: rise, radius: width / 2)

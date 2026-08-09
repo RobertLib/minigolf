@@ -368,13 +368,15 @@ enum DesertCourse {
                 floorRect(-1.60, 1.60, -4.45, -4.05),
                 floorRect(-1.10, 1.10, -5.80, -5.05, y: 0.14),
             ],
-            wallLoops: [[
-                SIMD2(-0.85, 0.50), SIMD2(0.85, 0.50), SIMD2(0.85, -1.30),
-                SIMD2(0.26, -1.30), SIMD2(0.26, -1.95), SIMD2(1.60, -1.95),
-                SIMD2(1.60, -4.45), SIMD2(-1.60, -4.45), SIMD2(-1.60, -1.95),
-                SIMD2(-0.26, -1.95), SIMD2(-0.26, -1.30), SIMD2(-0.85, -1.30),
-            ]],
-            extraWalls: [
+            // The outline is open along the back edge, where the ramp climbs onto
+            // the crown, so it is boarded as one chain rather than a ring: a ring
+            // lays a board straight across the ramp mouth and seals the cup off.
+            extraWalls: wallPath([
+                SIMD2(-1.60, -4.45), SIMD2(-1.60, -1.95), SIMD2(-0.26, -1.95),
+                SIMD2(-0.26, -1.30), SIMD2(-0.85, -1.30), SIMD2(-0.85, 0.50),
+                SIMD2(0.85, 0.50), SIMD2(0.85, -1.30), SIMD2(0.26, -1.30),
+                SIMD2(0.26, -1.95), SIMD2(1.60, -1.95), SIMD2(1.60, -4.45),
+            ]) + [
                 wall(-1.60, -4.45, -0.25, -4.45, height: 0.26),
                 wall(0.25, -4.45, 1.60, -4.45, height: 0.26),
                 wall(-1.10, -5.05, -0.25, -5.05, height: 0.26),

@@ -188,23 +188,43 @@ final class GameSceneCoordinator {
     /// frames each has had, and how far down the list the pre-roll has got.
     private var warmPoses: [(SIMD3<Float>, SIMD3<Float>)] = []
     private var warmPoseIndex = 0
-    private var warmPoseFrames = 0
+    /// Which run over the sweep path the pre-roll is on, and whether the current
+    /// one has met its frame budget the whole way along. Run zero pays for the
+    /// hole; the runs after it are the measurement.
+    private var warmPass = 0
+    private var warmPassOnTime = true
+    /// The rehearsal is over, and whether it ended because a run came back with
+    /// every frame inside the budget — the renderer saying it can carry a moving
+    /// camera across this hole — or because the pre-roll ran out of tries.
+    private var sweepRehearsed = false
+    private var sweepRehearsedClean = false
     /// The hole has been handed to the player and the loading veil is on its way
     /// out. Nothing before this point is on screen.
     private var sceneRevealed = false
     private var revealTime: Float = 0
     /// Longest frame the flyover steps over: a hitch may not teleport the camera.
     private let maxFlyoverStep: Float = 1.0 / 30
-    /// Frame time that counts as the renderer having caught up.
+    /// Frame time that counts as the renderer having caught up. Deliberately a
+    /// fixed figure rather than one read off the cadence this device has managed:
+    /// what the pre-roll is listening for is the 50 ms upload or the 200 ms shader
+    /// compile, which is a hitch on any screen, and a budget derived from measured
+    /// frames is at the mercy of a single freakishly short one — the coalesced
+    /// updates a simulator hands out are enough to set a bar nothing can clear.
     private let warmupFrameBudget: Float = 1.0 / 40
     private let warmupFramesNeeded = 4
-    private let warmupFramesPerPose = 2
-    /// Grace periods: the pre-roll stops stepping poses at the first and shows the
-    /// hole whatever the frame times at the second. Both are longer than the single
-    /// limit they replace, because waiting now costs a moment on a loading cover
-    /// rather than a frozen picture of the hole the player is waiting to play.
-    private let warmupPoseLimit: Float = 0.7
-    private let warmupTimeLimit: Float = 1.6
+    /// How finely the sweep path is sampled for the pre-roll. Neighbouring samples
+    /// are an eighth of the travel apart and their views overlap heavily, so
+    /// nothing along the path is left to be met for the first time by a camera
+    /// that is already moving.
+    private let warmupSamples = 10
+    /// Runs over the path before the pre-roll gives up on getting a clean one: one
+    /// to pay for the uploads and three to ask again.
+    private let warmupMaxPasses = 4
+    /// Grace periods: the pre-roll stops rehearsing at the first and shows the hole
+    /// whatever the frame times at the second. Waiting here costs a moment on a
+    /// loading cover rather than a stutter across the hole being handed over.
+    private let warmupRehearsalLimit: Float = 1.9
+    private let warmupTimeLimit: Float = 2.5
     /// How long the hole is held still after the veil starts fading, so the sweep
     /// to the ball begins on a hole that is already fully on screen.
     private let revealHold: Float = 0.3
@@ -232,6 +252,15 @@ final class GameSceneCoordinator {
     /// `-calibrate <0…1>`: fires every shot at this strength and logs how far
     /// the ball actually rolled, so the aim guide's length can be tuned.
     private let calibratePower = floatArgument("-calibrate")
+    /// `-warmuplog`: reports what the pre-roll had to do before it would show the
+    /// hole. A rehearsal that ran out of passes, or one that took long enough to
+    /// hit its grace period, is the device saying it could not promise a smooth
+    /// opening sweep — which is the only warning of a stutter that arrives before
+    /// the stutter does.
+    private let warmupLog = ProcessInfo.processInfo.arguments.contains("-warmuplog")
+    /// Shortest frame seen since the hole reached the renderer, so the log can say
+    /// what cadence a pass was judged against.
+    private var warmupFastestFrame: Float = .infinity
     private var shotOrigin: SIMD3<Float>?
     #endif
 
@@ -548,29 +577,30 @@ final class GameSceneCoordinator {
     /// the frames after it upload meshes and textures, compile render pipelines and
     /// size the shadow map. A camera sweeping through that is what reads as a
     /// stutter, so the hole arrives under a loading cover
-    /// (`GameController.sceneReady`) and this runs the pre-roll behind it — every
-    /// pose the sweep will pass through is drawn once while nobody can see it, the
-    /// opening pose is then held until frames land on time, and the hole is only
-    /// handed over after that. Returns true on the frame the sweep may start.
+    /// (`GameController.sceneReady`) and this runs the pre-roll behind it — the
+    /// sweep is walked end to end while nobody can see it and then walked again
+    /// until a run of it comes back on time, the opening pose is held until frames
+    /// land on time, and the hole is only handed over after that. Returns true on
+    /// the frame the sweep may start.
     private func warmUpScene(dt: Float) -> Bool {
         warmupTime += dt
+        #if DEBUG
+        warmupFastestFrame = min(warmupFastestFrame, dt)
+        #endif
         if warmPoses.isEmpty { warmPoses = flyoverWarmPoses() }
 
-        // Stage one: a mesh is uploaded and its shader compiled the first frame it
-        // is actually drawn, so anything the camera would meet for the first time
-        // halfway through the sweep is met here instead. A device that runs out of
-        // the grace period drops the rest of the list rather than the reveal.
-        if warmPoseIndex < warmPoses.count {
-            if warmupTime < warmupPoseLimit {
-                aimCamera(at: warmPoses[warmPoseIndex])
-                warmPoseFrames += 1
-                if warmPoseFrames >= warmupFramesPerPose {
-                    warmPoseIndex += 1
-                    warmPoseFrames = 0
-                }
-                return false
-            }
-            warmPoseIndex = warmPoses.count
+        // Stage one: the sweep is rehearsed behind the cover, walked pose by pose
+        // along the path the camera will really travel. A mesh is uploaded and its
+        // shader compiled the first frame it is actually drawn, so the hitch that
+        // used to land halfway through the sweep lands here instead, where there is
+        // nothing on screen to hitch. What follows is the same walk over again, as
+        // a question this time: a run whose every frame arrived inside the budget
+        // is the renderer saying it can carry a moving camera across this hole. A
+        // device that cannot say so before the grace period is out gives up the
+        // rehearsal rather than the reveal.
+        if !sweepRehearsed {
+            if warmupTime < warmupRehearsalLimit, rehearseSweep(dt: dt) { return false }
+            sweepRehearsed = true
         }
 
         // Stage two: back on the opening pose, held there until the renderer
@@ -591,24 +621,64 @@ final class GameSceneCoordinator {
         return revealTime >= revealHold
     }
 
+    /// Steps the camera one pose further along the sweep and says whether the
+    /// rehearsal wants the frame after this one. Each run over the path ends by
+    /// asking whether it was clean, and a run is only clean from the second one
+    /// onwards — the first is the one paying for the uploads, and judging it would
+    /// only ever fail. Going round again both gives the renderer another go at
+    /// whatever it was still working on and re-asks the question.
+    private func rehearseSweep(dt: Float) -> Bool {
+        if warmPoseIndex >= warmPoses.count {
+            let clean = warmPass > 0 && warmPassOnTime
+            warmPass += 1
+            warmPoseIndex = 0
+            warmPassOnTime = true
+            if clean || warmPass >= warmupMaxPasses {
+                sweepRehearsedClean = clean
+                return false
+            }
+        }
+        // Measured with the camera moving, which is the only way the question is
+        // worth asking: held still, a hole that has not finished uploading itself
+        // still delivers frames on time, because it is drawing the same one twice.
+        if warmPass > 0, dt > warmupFrameBudget { warmPassOnTime = false }
+        aimCamera(at: warmPoses[warmPoseIndex])
+        warmPoseIndex += 1
+        return true
+    }
+
     private func revealScene() {
         guard !sceneRevealed else { return }
         sceneRevealed = true
         controller?.sceneReady = true
+        #if DEBUG
+        if warmupLog {
+            print("WARMUP hole=\(level.number) course=\(level.course.rawValue) "
+                  + "held=\(String(format: "%.2f", warmupTime))s "
+                  + "passes=\(warmPass)/\(warmupMaxPasses) "
+                  + "clean=\(sweepRehearsedClean) "
+                  + "fastestFrame=\(String(format: "%.1f", warmupFastestFrame * 1000))ms")
+        }
+        #endif
     }
 
-    /// The poses the pre-roll draws: both ends of the sweep and its midpoint.
-    /// Sampled on the first frame rather than at `build`, so the landing pose
-    /// already accounts for the layout pass that sets `aspectFactor`.
+    /// The poses the pre-roll draws: the sweep path sampled end to end, walked
+    /// backwards so each run finishes where the sweep begins. Sampled on the first
+    /// frame rather than at `build`, so the landing pose already accounts for the
+    /// layout pass that sets `aspectFactor`.
     private func flyoverWarmPoses() -> [(SIMD3<Float>, SIMD3<Float>)] {
         let start = introStartPose()
         let end = followPose(ballPosition: lastRestPosition)
         // Reduce Motion parks the camera where the shot will be played from and the
         // sweep travels nowhere, so there is only the one pose worth warming.
         guard simd_distance(start.0, end.0) > 0.01 else { return [start] }
-        let middle = (simd_mix(start.0, end.0, SIMD3(repeating: 0.5)),
-                      simd_mix(start.1, end.1, SIMD3(repeating: 0.5)))
-        return [end, middle, start]
+        // Spaced evenly along the travel rather than along the sweep's own easing,
+        // which would crowd the samples at the two ends and leave the middle —
+        // the stretch the camera crosses fastest — the thinnest covered.
+        return (0..<warmupSamples).map { i in
+            let t = SIMD3(repeating: 1 - Float(i) / Float(warmupSamples - 1))
+            return (simd_mix(start.0, end.0, t), simd_mix(start.1, end.1, t))
+        }
     }
 
     private func aimCamera(at pose: (SIMD3<Float>, SIMD3<Float>)) {

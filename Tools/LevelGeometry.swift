@@ -135,6 +135,38 @@ struct Blocker {
     }
 }
 
+/// Whether a ball can really get up a ramp. A ramp is the one thing that joins
+/// two floor heights, and the tools used to take that join on trust — so a board
+/// left standing across its mouth sealed the top of the hole off and still
+/// measured as reachable. It walks a few lanes up the deck instead, from just
+/// short of the foot to just past the top, and passes the ramp if any one of
+/// them is clear of the boards and blocks that guard the height it is at.
+func rampIsClear(center: SIMD2<Float>, width: Float, length: Float, rise: Float,
+                 yaw: Float, through solids: [Blocker]) -> Bool {
+    let along = SIMD2<Float>(sin(yaw), cos(yaw))
+    let across = SIMD2<Float>(cos(yaw), -sin(yaw))
+    // The lanes the ball's centre can hold while staying on the deck. A ramp
+    // narrower than the ball has none, and nothing gets up it.
+    let halfWidth = width / 2 - ballRadius
+    guard halfWidth >= 0 else { return false }
+
+    let lanes = 8, steps = 24
+    // The run reaches a little past both mouths: a kerb guarding the floor
+    // beside the ramp stands exactly there.
+    let run = length + 0.08
+    for lane in 0...lanes {
+        let offset = (Float(lane) / Float(lanes) * 2 - 1) * halfWidth
+        let clear = (0...steps).allSatisfy { step in
+            let t = Float(step) / Float(steps)
+            let p = center + along * ((0.5 - t) * run) + across * offset
+            let deck = rise * t
+            return !solids.contains { $0.guards(y: deck) && $0.blocks(p) }
+        }
+        if clear { return true }
+    }
+    return false
+}
+
 func blockers(of level: LevelDefinition) -> [Blocker] {
     var out: [Blocker] = []
     for w in walls(of: level) {
@@ -282,6 +314,8 @@ func travelDistance(of level: LevelDefinition, cell: Float = 0.03) -> Float? {
     for spec in level.obstacles {
         switch spec {
         case .ramp(let c, let width, let length, let rise, let yaw):
+            guard rampIsClear(center: c, width: width, length: length, rise: rise,
+                              yaw: yaw, through: solids) else { continue }
             let along = SIMD2<Float>(sin(yaw), cos(yaw))
             let foot = c + along * (length / 2 + 0.04)
             let top = c - along * (length / 2 + 0.04)

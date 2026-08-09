@@ -351,7 +351,8 @@ private struct AchievementBanner: View {
 /// one screen being swapped for another.
 private struct LoadingVeil: View {
     let level: LevelDefinition
-    /// A hole normally arrives in a fraction of a second, and a spinner shown for
+    /// A hole normally arrives in under a second — most of which is the pre-roll
+    /// rehearsing the opening sweep behind this cover — and a spinner shown for
     /// three frames only flickers. This one is for the loads that take longer.
     @State private var showActivity = false
 
@@ -385,7 +386,7 @@ private struct LoadingVeil: View {
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Loading hole \(level.number)"))
         .task {
-            try? await Task.sleep(for: .milliseconds(450))
+            try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
             showActivity = true
         }

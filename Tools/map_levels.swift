@@ -8,6 +8,7 @@
 //  Foundation + simd, so this compiles for macOS the same way the validator does:
 //
 //      swiftc -O -o /tmp/maps Tools/map_levels.swift \
+//          Tools/LevelGeometry.swift \
 //          Minigolf/Support/MathHelpers.swift \
 //          Minigolf/Models/CourseType.swift \
 //          Minigolf/Models/LevelDefinition.swift \
