@@ -50,7 +50,7 @@ generated procedurally and the sounds are synthesised WAVs bundled with the app.
   - **a world's first hole is always gentler than the previous world's finale**
   - **median travel grows world by world**: 3.7 → 4.1 → 4.2 → 4.4 → 5.1 → 5.3 →
     5.5 → 5.5 → 5.7 m; the holes themselves run from 2.4 m (Green Garden 1) to
-    7.0 m (Orbital Station 12), par from 2 to 6, world par from 36 to 63.
+    7.0 m (Clockwork Works), par from 2 to 6, world par from 36 to 63.
 
   The later worlds are also built from several stretches in a row: a run-up,
   a banked turn along the rail, a hazard and finally a climb up a ramp to

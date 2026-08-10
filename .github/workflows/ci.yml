@@ -1,0 +1,99 @@
+name: CI
+
+# The two checks that can fail without anybody noticing: a hole whose geometry
+# stopped being playable, and a rule in the golf arithmetic that quietly changed
+# meaning. Both are cheap to run and neither needs a device.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  levels:
+    name: Level geometry
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The level data is plain Foundation + simd, so the whole library compiles
+      # for macOS and every hole can be checked without a simulator. Exits 1 on
+      # the first hole that is unplayable — a cup inside a wall, a green with an
+      # open edge, a pocket the ball cannot roll into.
+      - name: Validate all 108 holes
+        run: |
+          swiftc -O -o "$RUNNER_TEMP/validate" \
+            Tools/validate_levels.swift \
+            Tools/LevelGeometry.swift \
+            Minigolf/Support/MathHelpers.swift \
+            Minigolf/Models/CourseType.swift \
+            Minigolf/Models/LevelDefinition.swift \
+            Minigolf/Models/LevelLibrary.swift \
+            Minigolf/Models/Levels/*.swift
+          "$RUNNER_TEMP/validate"
+
+  test:
+    name: Build & test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Newest Xcode on the image rather than a pinned one: the project builds in
+      # Swift 6 language mode with main-actor default isolation, which the older
+      # Xcodes still kept on some images do not understand.
+      - name: Select the newest Xcode
+        run: |
+          newest=$(ls -d /Applications/Xcode*.app | sort -V | tail -1)
+          echo "Using $newest"
+          sudo xcode-select -s "$newest"
+          xcodebuild -version
+
+      # The runner images change which iPhones they carry, so the destination is
+      # asked for rather than hard-coded — a pinned device name is the usual way
+      # one of these files rots.
+      - name: Pick a simulator
+        id: sim
+        run: |
+          name=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          runtimes = json.load(sys.stdin)["devices"]
+          best = None
+          for runtime, devices in runtimes.items():
+              if "iOS" not in runtime:
+                  continue
+              version = runtime.rsplit(".", 1)[-1].replace("iOS-", "").replace("-", ".")
+              for device in devices:
+                  if not device["name"].startswith("iPhone"):
+                      continue
+                  key = tuple(int(part) for part in version.split(".") if part.isdigit())
+                  if best is None or key > best[0]:
+                      best = (key, device["name"])
+          print(best[1] if best else "")
+          ')
+          if [ -z "$name" ]; then echo "No iPhone simulator available"; exit 1; fi
+          echo "Using $name"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
+      # 107 tests over the parts that break quietly: the golf arithmetic, the
+      # unlock chain, the streaks, and a scene build of every hole in the game.
+      - name: Test
+        run: |
+          xcodebuild test \
+            -project Minigolf.xcodeproj \
+            -scheme Minigolf \
+            -destination "platform=iOS Simulator,OS=latest,name=${{ steps.sim.outputs.name }}" \
+            -resultBundlePath "$RUNNER_TEMP/Minigolf.xcresult" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xcresult
+          path: ${{ runner.temp }}/Minigolf.xcresult
+          retention-days: 7

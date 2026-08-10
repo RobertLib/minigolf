@@ -8,13 +8,24 @@
 import Foundation
 
 #if DEBUG
+/// Progress that must never reach disk.
+///
 /// `-unlockall` fills progress and stats in with plausible numbers so the menu
 /// screens can be photographed. Those numbers must never reach disk: the first
 /// tap on a ball in the clubhouse, or the first hole finished, would otherwise
 /// write the fake save over the real one and there is no way back from that.
 /// Both stores check this before writing, so nothing has to remember to.
+///
+/// A test run counts for the same reason. The tests drive the real controller
+/// through lost lives, penalties and finished holes, and the machine running
+/// them is somebody's Mac with their own save on it — so the run is read as a
+/// demo too, and every `save()` in the process becomes a no-op. Read off the
+/// environment XCTest sets in the host process rather than a scheme setting, so
+/// there is nothing to keep in step.
 enum DemoProgress {
     static let isActive = ProcessInfo.processInfo.arguments.contains("-unlockall")
+        || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        || NSClassFromString("XCTestCase") != nil
 }
 #endif
 
