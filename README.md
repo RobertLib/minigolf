@@ -393,3 +393,16 @@ Still to be done by hand in App Store Connect:
   by the game itself in the simulator through the DEBUG flags) and
   `Tools/appstore_captions.sh` (the captioned variant of the screenshots) — see
   `AppStore/screenshots.md`.
+
+## Licence
+
+The code is MIT — see `LICENSE`.
+
+The soundtrack is not. The 32 tracks under `Minigolf/Resources/Music/` were
+written by other people and came in under CC0 or CC-BY 3.0; they are only
+redistributed here, so they keep their own licence and MIT has nothing to say
+about them. Sixteen of them are CC-BY, which asks for the title, the author and
+a link wherever the work goes — the game carries that in Settings → Music
+Credits, generated from `Tools/music_sources.json` alongside
+`Minigolf/Resources/Music/CREDITS.md`. Anyone reusing this code with the audio
+in place inherits that obligation; anyone swapping the audio out is free of it.

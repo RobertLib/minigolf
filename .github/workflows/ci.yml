@@ -1,8 +1,9 @@
 name: CI
 
-# The two checks that can fail without anybody noticing: a hole whose geometry
-# stopped being playable, and a rule in the golf arithmetic that quietly changed
-# meaning. Both are cheap to run and neither needs a device.
+# The three checks that can fail without anybody noticing: a hole whose geometry
+# stopped being playable, a rule in the golf arithmetic that quietly changed
+# meaning, and the Release build the tests never compile. All are cheap to run
+# and none needs a device.
 
 on:
   push:
@@ -79,7 +80,7 @@ jobs:
           echo "Using $name"
           echo "name=$name" >> "$GITHUB_OUTPUT"
 
-      # 107 tests over the parts that break quietly: the golf arithmetic, the
+      # 118 tests over the parts that break quietly: the golf arithmetic, the
       # unlock chain, the streaks, and a scene build of every hole in the game.
       - name: Test
         run: |
@@ -88,6 +89,21 @@ jobs:
             -scheme Minigolf \
             -destination "platform=iOS Simulator,OS=latest,name=${{ steps.sim.outputs.name }}" \
             -resultBundlePath "$RUNNER_TEMP/Minigolf.xcresult" \
+            CODE_SIGNING_ALLOWED=NO
+
+      # The tests run Debug, which is the one configuration that compiles the
+      # `#if DEBUG` code — including the whole of `GameController.init()`, whose
+      # absence in Release leaves the class on a synthesised default init. That
+      # holds only while every stored property keeps a default value, and the day
+      # one does not the tests still pass and the shipping build stops compiling.
+      # A compile is enough to catch it, so no simulator is booked for it.
+      - name: Build Release
+        run: |
+          xcodebuild build \
+            -project Minigolf.xcodeproj \
+            -scheme Minigolf \
+            -configuration Release \
+            -destination "generic/platform=iOS Simulator" \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Upload results
