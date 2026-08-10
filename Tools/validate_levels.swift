@@ -16,7 +16,10 @@
 //
 //  It reports anything that would make a hole unplayable: a cup inside a wall,
 //  a green with an open edge the ball can roll off, floors that are not
-//  connected to the tee, obstacles sitting on top of the hole and so on.
+//  connected to the tee, obstacles sitting on top of the hole and so on. It also
+//  reports furniture stacked on furniture — a trap under a banked green, a skin
+//  buried in a speed bump, a post planted in a lava vent — which plays and draws
+//  as nonsense without ever making a hole impossible.
 //  Finally it flood fills the playable surface cell by cell to prove the ball
 //  can really roll from the tee to the cup and to the bonus star — pockets
 //  sealed off by boards inside a single green show up there.
@@ -305,6 +308,148 @@ func checkPlacement(_ level: LevelDefinition) {
     let reach = simd_distance(level.tee, level.hole)
     if reach > Float(level.par) * 1.7 {
         warn(level, "cup is \(String(format: "%.1f", reach)) m away for par \(level.par)")
+    }
+}
+
+// MARK: - Stacked furniture
+
+/// What a thing lays flat on the felt. Every one of these is drawn as a slab a
+/// few millimetres thick sitting on the floor, and they are all pitched within a
+/// millimetre or two of each other — so two of them over the same felt at the
+/// same height fight for the same pixels, whatever else they do to the ball.
+enum Lay {
+    /// Sand, mud, ice: a damping change painted on a green.
+    case skin
+    /// Slope, belt, wind: a tinted rect that pushes the ball across it.
+    case field
+    /// Boost pad, turntable, portal ring: a small deck of its own.
+    case pad
+}
+
+/// Everything a hole lays flat on its felt, with the height it lies at.
+func laid(on level: LevelDefinition) -> [(lay: Lay, name: String, rect: GroundRect, y: Float)] {
+    var out: [(Lay, String, GroundRect, Float)] = []
+    for patch in level.floors where patch.kind.isOverlay {
+        out.append((.skin, "\(patch.kind)", patch.rect, patch.y))
+    }
+    func square(_ c: SIMD2<Float>, _ reach: Float) -> GroundRect {
+        GroundRect(x0: c.x - reach, x1: c.x + reach, z0: c.y - reach, z1: c.y + reach)
+    }
+    for spec in level.obstacles {
+        let y = obstacleY(spec)
+        switch spec {
+        case .slope(let r, _, _, _), .conveyor(let r, _, _, _), .fan(let r, _, _, _, _, _):
+            out.append((.field, obstacleName(spec), r, y))
+        case .boostPad(let c, _, _, _):
+            out.append((.pad, "boostPad", square(c, 0.095), y))
+        case .turntable(let c, let radius, _, _):
+            out.append((.pad, "turntable", square(c, radius), y))
+        case .teleporter(let a, let b, let radius, _):
+            out.append((.pad, "portal A", square(a, radius), y))
+            out.append((.pad, "portal B", square(b, radius), y))
+        default:
+            break
+        }
+    }
+    return out
+}
+
+/// Things laid on top of one another, and things standing on nothing.
+///
+/// A trap and a banked green over the same felt is the case worth spelling out:
+/// the two tints are drawn into each other, and what they ask of the ball pulls
+/// opposite ways — the arrows say it is being carried while the sand says it is
+/// being held, and what really happens is that the bank creeps the ball out of
+/// the trap and parks it against the boards. A bank that stops where the sand
+/// starts says the same thing about the hole and plays the way it looks.
+func checkStacking(_ level: LevelDefinition) {
+    let flat = laid(on: level)
+
+    for i in flat.indices {
+        for j in flat.indices where j > i {
+            let (a, b) = (flat[i], flat[j])
+            guard abs(a.y - b.y) < 0.001, strictlyOverlaps(a.rect, b.rect) else { continue }
+            let x = min(a.rect.maxX, b.rect.maxX) - max(a.rect.minX, b.rect.minX)
+            let z = min(a.rect.maxZ, b.rect.maxZ) - max(a.rect.minZ, b.rect.minZ)
+            let shared = String(format: "%.2f", x * z)
+            // A pad is small and sits proud of the felt, so it reads as being
+            // *on* whatever it is on; the rest are flat tints of equal standing.
+            if a.lay == .pad || b.lay == .pad {
+                warn(level, "\(a.name) \(fmt(a.rect)) and \(b.name) \(fmt(b.rect)) " +
+                            "share \(shared) m² of felt at y = \(a.y)")
+            } else {
+                fail(level, "\(a.name) \(fmt(a.rect)) and \(b.name) \(fmt(b.rect)) are both " +
+                            "laid over \(shared) m² of the same felt at y = \(a.y)")
+            }
+        }
+    }
+
+    // A skin is a flat rect and a bump is a mound: where they meet, the skin is
+    // buried in the mound and shows as a rectangle bitten off at the foot.
+    for spec in level.obstacles {
+        guard case .bump(let c, let width, let height, let yaw) = spec else { continue }
+        let mound = bumpFootprint(center: c, width: width, height: height, yaw: yaw)
+        for patch in level.floors where patch.kind.isOverlay && abs(patch.y) < 0.001 {
+            let steps = 12
+            var inside = 0
+            for iz in 0...steps {
+                for ix in 0...steps {
+                    let p = SIMD2(patch.rect.minX + patch.rect.size.x * Float(ix) / Float(steps),
+                                  patch.rect.minZ + patch.rect.size.y * Float(iz) / Float(steps))
+                    if boxContains(p, center: mound.center, half: mound.half, yaw: mound.yaw) {
+                        inside += 1
+                    }
+                }
+            }
+            if inside > 0 {
+                let share = Float(inside) / Float((steps + 1) * (steps + 1))
+                fail(level, "\(patch.kind) patch \(fmt(patch.rect)) runs " +
+                            "\(String(format: "%.0f", share * 100))% into the mound of the " +
+                            "bump at \(fmt(c))")
+            }
+        }
+    }
+
+    // A board along the edge of a trap is its kerb; a board through the middle
+    // of one cuts it in two and leaves half of it somewhere else.
+    for w in walls(of: level) {
+        for patch in level.floors where patch.kind.isOverlay && abs(patch.y - w.baseY) < 0.001 {
+            let steps = max(4, Int((simd_distance(w.a, w.b) / 0.02).rounded(.up)))
+            var deepest: Float = 0
+            for i in 0...steps {
+                let p = w.a + (w.b - w.a) * (Float(i) / Float(steps))
+                guard patch.rect.contains(p) else { continue }
+                let r = patch.rect
+                deepest = max(deepest, min(min(p.x - r.minX, r.maxX - p.x),
+                                           min(p.y - r.minZ, r.maxZ - p.y)))
+            }
+            if deepest > 0.06 {
+                fail(level, "board (\(fmt(w.a))–\(fmt(w.b))) cuts " +
+                            "\(String(format: "%.2f", deepest)) m into the \(patch.kind) patch " +
+                            "\(fmt(patch.rect))")
+            }
+        }
+    }
+
+    // Something planted in a hazard has no floor under it, and the ball is
+    // already on its way down by the time it could touch the thing.
+    for spec in level.obstacles {
+        var foot: SIMD2<Float>?
+        switch spec {
+        case .post(let c, _), .bumper(let c, _), .windmill(let c, _, _),
+             .block(let c, _, _, 0), .tunnel(let c, _, _, _):
+            foot = c
+        default:
+            break
+        }
+        guard let c = foot else { continue }
+        let standing = greens(level).contains { abs($0.y) < 0.001 && $0.rect.contains(c) }
+        let sinking = level.floors.contains {
+            $0.kind.isHazard && abs($0.y) < 0.001 && $0.rect.contains(c)
+        }
+        if sinking && !standing {
+            fail(level, "\(obstacleName(spec)) at \(fmt(c)) stands in a hazard with no floor under it")
+        }
     }
 }
 
@@ -629,6 +774,7 @@ struct Validate {
                     fail(level, "hole is filed under the wrong course")
                 }
                 checkPlacement(level)
+                checkStacking(level)
                 checkEnclosure(level)
                 checkReachability(level)
                 checkBallPaths(level)

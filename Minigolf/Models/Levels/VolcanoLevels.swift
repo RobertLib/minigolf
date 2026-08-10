@@ -379,7 +379,10 @@ enum VolcanoCourse {
                         .patrol(axis: acrossLane, amplitude: 0.95), speed: 1.4),
                 critter(.magmaBlob, at: SIMD2(0.70, -3.80),
                         .patrol(axis: acrossLane, amplitude: 0.55), speed: 0.9),
-                .post(center: SIMD2(-0.60, -4.55), radius: 0.05),
+                // On the felt beside the third vent, not in it: a post standing
+                // in the middle of a vent has nothing under it and can only be
+                // met by a ball already on its way down.
+                .post(center: SIMD2(0.10, -4.55), radius: 0.05),
             ],
             bonusStar: SIMD2(-1.55, -3.05),
             cameraZoom: 2.15

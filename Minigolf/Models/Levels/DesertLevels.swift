@@ -26,7 +26,10 @@ enum DesertCourse {
             tee: SIMD2(0, 0), hole: SIMD2(0, -2.55),
             floors: [
                 floorRect(-0.85, 0.85, -1.20, 0.50),
-                floorRect(-0.85, -0.30, -1.05, -0.55, kind: .sand),
+                // Clear of the speed bump's foot: the mound is a fat cylinder
+                // buried deep, and its flank reaches 0.13 m either side of the
+                // crest — a trap laid over that is drawn inside the mound.
+                floorRect(-0.85, -0.30, -1.20, -0.79, kind: .sand),
                 floorRect(-0.24, 0.24, -1.90, -1.20),
                 floorRect(-0.95, 0.95, -3.25, -1.90),
             ],
@@ -53,7 +56,10 @@ enum DesertCourse {
             tee: SIMD2(0, 0), hole: SIMD2(0, -3.20),
             floors: [
                 floorRect(-1.10, 1.10, -3.90, 0.50),
-                floorRect(-1.10, -0.30, -2.40, -1.70, kind: .sand),
+                // In front of the left arm rather than across it: a trap the
+                // boards run through is cut in two, and half of it ends up in
+                // the pocket, which is meant to be empty.
+                floorRect(-1.10, -0.50, -1.36, -0.90, kind: .sand),
             ],
             wallLoops: [rectLoop(-1.10, 1.10, -3.90, 0.50)],
             extraWalls: [
@@ -339,7 +345,11 @@ enum DesertCourse {
                 .bump(center: SIMD2(0, -0.70), width: 1.0, height: 0.03, yaw: 0),
                 .fan(rect: zone(-1.20, 1.20, -2.55, -1.35), direction: SIMD2(-1, 0),
                      strength: 2.4, period: 3.2, phase: 0, y: 0),
-                .fan(rect: zone(-1.70, 1.70, -4.20, -2.65), direction: SIMD2(1, 0),
+                // The gust stops at the drift it has piled up: wind blowing over
+                // a sand trap draws its tint over the sand's own and works
+                // against the damping, so the ball is shoved through the trap
+                // instead of being held by it.
+                .fan(rect: zone(-1.70, 0.35, -4.20, -2.65), direction: SIMD2(1, 0),
                      strength: 2.0, period: 3.2, phase: 1.6, y: 0),
                 .gate(center: SIMD2(-0.55, -2.60), size: SIMD2(0.60, 0.13), yaw: 0,
                       period: 3.6, phase: 0.4, baseY: 0),
@@ -388,7 +398,10 @@ enum DesertCourse {
             obstacles: [
                 .bump(center: SIMD2(0, -0.65), width: 1.6, height: 0.03, yaw: 0),
                 .bumper(center: SIMD2(0.75, -2.45), radius: 0.08),
-                .slope(rect: zone(-1.55, 1.55, -3.35, -2.05), direction: SIMD2(-1, 0),
+                // The bank stops where the sand begins, so it feeds the trap
+                // instead of being laid over it: a slope that reaches into the
+                // sand tints it twice over and creeps the ball out again.
+                .slope(rect: zone(-0.60, 1.55, -3.35, -2.05), direction: SIMD2(-1, 0),
                        strength: 0.9, y: 0),
                 critter(.tumbleweed, at: SIMD2(0.60, -3.00),
                         .patrol(axis: acrossLane, amplitude: 0.65), speed: 1.4),

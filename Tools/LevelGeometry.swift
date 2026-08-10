@@ -18,6 +18,30 @@ import simd
 /// the ball's centre can sit in is a cell the ball fits in.
 let ballRadius: Float = 0.034
 
+/// True if `p` lies inside the box `center`/`half` turned by `yaw`, read the way
+/// the level data reads a turn: the first half-extent runs along (cos, −sin),
+/// which for a bump or a gate is the direction it spans the lane in.
+func boxContains(_ p: SIMD2<Float>, center: SIMD2<Float>, half: SIMD2<Float>,
+                 yaw: Float) -> Bool {
+    let d = p - center
+    return abs(simd_dot(d, SIMD2(cos(yaw), -sin(yaw)))) <= half.x &&
+           abs(simd_dot(d, SIMD2(sin(yaw), cos(yaw)))) <= half.y
+}
+
+/// The felt a speed bump's mound stands on, as a turned box.
+///
+/// A bump is the crown of a cylinder buried deep in the ground: the builder cuts
+/// it from a radius twelve times the crest, which is what turns a lip into a 22°
+/// rise the ball can climb. So the mound reaches `crest · √23` either side of the
+/// crest line — around seven crests, far more than the crest suggests — and
+/// anything painted flat on the felt inside that is drawn *inside* the mound
+/// rather than over it.
+func bumpFootprint(center: SIMD2<Float>, width: Float, height: Float, yaw: Float)
+    -> (center: SIMD2<Float>, half: SIMD2<Float>, yaw: Float) {
+    let crest = max(0.01, height)
+    return (center, SIMD2(max(0.05, width - 0.008) / 2, crest * 4.7958), yaw)
+}
+
 // MARK: - Walls
 
 struct Seg {
