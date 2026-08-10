@@ -88,11 +88,11 @@ IPAD_UDID="$(udid_for "$IPAD_NAME")"
 # name|launch arguments. Zoom is picked per hole so the whole layout fits:
 # -zoom multiplies the level's own cameraZoom.
 SHOTS=(
-    "01-aim|-autostart garden 6 -aimdemo 0.7 -zoom 1.8"
+    "01-aim|-autostart garden 5 -aimdemo 0.7 -zoom 1.3"
     "02-neon|-autostart neon 12 -aimdemo 0.6 -zoom 1.35"
     "03-worlds|-courseselect -unlockall"
-    "04-volcano|-autostart volcano 10 -aimdemo 0.55 -zoom 1.3"
-    "05-cosmos|-autostart cosmos 6 -aimdemo 0.6 -zoom 1.35"
+    "04-volcano|-autostart volcano 9 -aimdemo 0.55 -zoom 1.5"
+    "05-cosmos|-autostart cosmos 2 -aimdemo 0.6 -zoom 1.4"
     "06-rating|-finalrating -unlockall"
     "07-clubhouse|-clubhouse -unlockall"
     "08-daily|-daily -aimdemo 0.6 -zoom 1.5"
@@ -153,18 +153,35 @@ fi
 CLIPS=(
     "r1-garden|PREROLL|13|-autostart garden 1 -autoshot -autoadvance -zoom 1.4"
     "r2-neon|PREROLL|13|-autostart neon 3 -autoshot -autoadvance -zoom 1.45"
-    "r3-volcano|PREROLL|13|-autostart volcano 10 -autoshot -autoadvance -zoom 1.3"
-    "r4-cosmos|PREROLL|13|-autostart cosmos 6 -autoshot -autoadvance -zoom 1.35"
+    "r3-volcano|PREROLL|13|-autostart volcano 9 -autoshot -autoadvance -zoom 1.5"
+    # The loop wants speed the bot's default 0.55 cannot muster — without
+    # -calibrate the ball rolls back down the ramp and the clip is four seconds
+    # of a ball parked under the loop.
+    "r4-cosmos|PREROLL|13|-autostart cosmos 2 -autoshot -autoadvance -zoom 1.4 -calibrate 0.85"
     "r5-ice|PREROLL|13|-autostart ice 10 -autoshot -autoadvance -zoom 1.3"
     "r6-rating|RATING_PREROLL|7|-finalrating -unlockall"
 )
 
 # The autoplay is deterministic, but the iPad reaches each hole at a slightly
 # different moment, so the two devices get their own cut points.
-IPHONE_CUTS=(r1-garden:0.2:6.4 r2-neon:4.0:8.2 r5-ice:4.6:10.2
-             r3-volcano:2.5:6.5 r4-cosmos:0.8:4.8 r6-rating:0.8:3.3)
-IPAD_CUTS=(r1-garden:0.2:5.8 r2-neon:4.0:8.2 r5-ice:6.0:11.8
-           r3-volcano:2.5:7.0 r4-cosmos:0.8:4.8 r6-rating:0.8:3.3)
+#
+# Every window is picked to hold a moving ball from first frame to last. Two
+# things bound them: the loading veil is still fading over the opening second or
+# so of a clip (longest on ice, which has the most to upload), and the bot fires
+# only every 1.6 s, so a window that outlives the roll ends on a ball sitting
+# still. Check the windows again after any physics or level change — nothing
+# here fails loudly, the clip just goes quiet.
+#
+# r6-rating has to start at 0.0, and not because of what is on screen. It is the
+# one clip that never moves, so the encoder gives it a very long GOP — and a
+# range starting mid-GOP is dropped outright by the export once the segment sits
+# at a non-zero offset in the composition: the finished file holds the last frame
+# of the preceding clip for those seconds instead. Starting on the keyframe is
+# what makes it render, and the screen is identical throughout anyway.
+IPHONE_CUTS=(r1-garden:0.2:4.6 r2-neon:0.9:5.1 r5-ice:1.6:6.6
+             r3-volcano:0.9:5.5 r4-cosmos:4.2:8.4 r6-rating:0.0:2.5)
+IPAD_CUTS=(r1-garden:0.2:4.4 r2-neon:0.6:4.8 r5-ice:1.9:6.9
+           r3-volcano:0.6:5.2 r4-cosmos:3.9:8.1 r6-rating:0.0:2.5)
 
 record() { # record <udid> <locale> <clipdir> <preroll> <rating-preroll>
     local udid="$1" loc="$2" dir="$3" preroll="$4" rating="$5"

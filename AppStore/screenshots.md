@@ -11,10 +11,10 @@ and Screenshots* section (language switch at the top, one locale at a time).
 | iPhone 6.9" screenshots | `screenshots/<locale>/iphone-6.9/` | 1320 × 2868 | 8 |
 | iPad 13" screenshots | `screenshots/<locale>/ipad-13/` | 2064 × 2752 | 8 |
 | The same with captions | `screenshots-captioned/<locale>/<device>/` | same | 8 + 8 |
-| iPhone 6.9" App Preview | `preview/<locale>/iphone-6.9.mp4` | 1290 × 2796, 30 fps, 26.5 s | 1 |
-| iPad 13" App Preview | `preview/<locale>/ipad-13.mp4` | 1200 × 1600, 30 fps, 26.6 s | 1 |
+| iPhone 6.9" App Preview | `preview/<locale>/iphone-6.9.mp4` | 1290 × 2796, 30 fps, 24.9 s | 1 |
+| iPad 13" App Preview | `preview/<locale>/ipad-13.mp4` | 1200 × 1600, 30 fps, 24.7 s | 1 |
 
-79 MB of screenshots, 80 MB for the captioned variant and 136 MB of video in total.
+86 MB of screenshots, 80 MB for the captioned variant and 129 MB of video in total.
 
 ```bash
 Tools/appstore_media.sh              # screenshots and videos (~20 min)
@@ -77,11 +77,11 @@ too: **Product → Scheme → Edit Scheme → Run → Arguments → Arguments Pa
 
 | # | File | Screen | Arguments |
 |---|---|---|---|
-| 1 | `01-aim` | Green Garden, hole 6 — windmill and aim line | `-autostart garden 6 -aimdemo 0.7 -zoom 1.8` |
-| 2 | `02-neon` | Neon Nights, hole 12 — rotor | `-autostart neon 12 -aimdemo 0.6 -zoom 1.35` |
+| 1 | `01-aim` | Green Garden, hole 5 "The Windmill" — turning sails and the aim line | `-autostart garden 5 -aimdemo 0.7 -zoom 1.3` |
+| 2 | `02-neon` | Neon Nights, hole 12 — the world finale, two levels and bumpers | `-autostart neon 12 -aimdemo 0.6 -zoom 1.35` |
 | 3 | `03-worlds` | Course select with all nine worlds | `-courseselect -unlockall` |
-| 4 | `04-volcano` | Volcano Forge, hole 10 — lava and belts | `-autostart volcano 10 -aimdemo 0.55 -zoom 1.3` |
-| 5 | `05-cosmos` | Orbital Station, hole 6 — centrifuge and loop | `-autostart cosmos 6 -aimdemo 0.6 -zoom 1.35` |
+| 4 | `04-volcano` | Volcano Forge, hole 9 "Lava Flow" — two lava rivers along the lane | `-autostart volcano 9 -aimdemo 0.55 -zoom 1.5` |
+| 5 | `05-cosmos` | Orbital Station, hole 2 "First Loop" — the loop-the-loop | `-autostart cosmos 2 -aimdemo 0.6 -zoom 1.4` |
 | 6 | `06-rating` | Final rating and scorecard | `-finalrating -unlockall` |
 | 7 | `07-clubhouse` | Clubhouse — balls, career, trophies | `-clubhouse -unlockall` |
 | 8 | `08-daily` | Daily Challenge | `-daily -aimdemo 0.6 -zoom 1.5` |
@@ -97,11 +97,17 @@ too: **Product → Scheme → Edit Scheme → Run → Arguments → Arguments Pa
 | `-courseselect`, `-clubhouse`, `-daily`, `-finalrating`, `-holeselect <world>` | opens that screen |
 | `-autoshot`, `-autowin`, `-autoadvance` | plays by itself — used for the video |
 
-`-zoom` multiplies the given hole's `cameraZoom`, so the values in the table differ
-from hole to hole; the goal is always to get both the ball and the cup into frame.
-They are chosen so that the resulting zoom lands around 1.8 — the shadows are still
-fine there. With the camera zoomed far out they start dropping away, because the
-shadow map cascade is shorter than the camera's view distance.
+`-zoom` multiplies the given hole's `cameraZoom` and a larger value pulls the camera
+further back, so the values in the table differ from hole to hole; the goal is always
+to get both the ball and the cup into frame. The product lands between roughly 1.8
+(garden 5) and 3.1 (volcano 9) — do not push it much past that, because the shadows
+start dropping away once the camera is further out than the shadow map cascade
+reaches.
+
+The whole set is tied to the level library: when a hole is redesigned or renumbered
+the shot may quietly stop showing what its row claims. After any level rework, look
+at the eight images before uploading — that is how holes 1, 4 and 5 came to be
+re-picked when the geometry pass moved the windmill and left the lava out of frame.
 
 Regenerating does not give pixel-identical files: the windmills, rotors and
 pendulums keep turning and the aiming ring pulses, so you catch them in a different
@@ -158,11 +164,11 @@ first few seconds are what decide. It is made of six cuts:
 
 | # | Shot | What is on screen |
 |---|---|---|
-| 1 | Green Garden, hole 1 | the putt, the ball dropping in, the PAR message |
-| 2 | Neon Nights, hole 3 | bouncing between the pinball bumpers |
-| 3 | Frozen Fjord, hole 10 | ice belts, turning into a BIRDIE |
-| 4 | Volcano Forge, hole 10 | a run past the lava |
-| 5 | Orbital Station, hole 6 | the centrifuge spun up |
+| 1 | Green Garden, hole 1 | the opening putt and the long roll up to the cup |
+| 2 | Neon Nights, hole 3 | past the pinball bumpers |
+| 3 | Frozen Fjord, hole 10 | across the ice terraces |
+| 4 | Volcano Forge, hole 9 | a run between the two lava rivers |
+| 5 | Orbital Station, hole 2 | the ball driven up and through the loop |
 | 6 | Final rating | "Pro Golfer" and the results |
 
 It plays itself (`-autoshot -autoadvance`) and the physics is deterministic, so the
@@ -171,9 +177,35 @@ same arguments give the same recording every time — which is why the cut point
 a regeneration. The iPad has its own points, because it reaches each hole a little
 sooner than the iPhone.
 
+What the cut points are worth is a different question from whether they still line
+up. The bot aims at the cup and fires every 1.6 s at a fixed strength, so it is
+a poor golfer on the reworked holes: it parks the ball beside the cup and taps at
+it, and none of the five gameplay clips ends on a ball dropping in. Each window is
+therefore chosen to hold a ball that is *moving* — a strike and the roll that
+follows — and to end before the ball stops. Two things bound them at the front:
+the loading veil is still fading over the first second or so (longest on ice), and
+the opening flyover has to be over. Clip five is the exception that needed more
+than a re-cut: the loop rejects the bot's default strength outright, so that clip
+is recorded with `-calibrate 0.85` to give the ball enough speed to get round.
+
+After any physics or level change, look at the finished video before uploading.
+Nothing here fails loudly — a stale window just goes quiet, and a hole that has
+been renumbered simply shows something else.
+
 The simulator records at ~72 fps, which App Store Connect rejects;
 [`Tools/appstore_video.swift`](../Tools/appstore_video.swift) recuts the recording,
 scales it to the target resolution and exports H.264 at 30 fps.
+
+One trap lives in that step, and it costs an hour to find because the export
+reports success. The rating clip is the only recording that never moves, so the
+encoder gives it a very long GOP; asking for a range that starts mid-GOP is fine
+on its own, but once that segment sits at a non-zero offset in the composition the
+export silently drops its media and holds the last frame of the *preceding* clip
+for those seconds instead. The composition itself is correct — `AVComposition`
+reports both segments, non-empty, at the right times — so only looking at the
+finished file catches it. Hence `r6-rating:0.0:…`: starting on the keyframe is
+what makes it render, and the screen is identical throughout anyway. Any future
+clip of a still screen needs the same treatment.
 
 The iPhone video is 1290 × 2796 — the simulator recording (1320 × 2868) has
 a marginally different aspect ratio, so it is scaled to width and a few rows are
