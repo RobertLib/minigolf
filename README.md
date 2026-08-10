@@ -256,7 +256,7 @@ The `travel` column is the shortest roll from the tee to the cup (Dijkstra over
 cannons as shortcuts) and `m/par` is that same distance per par stroke — that is
 the difficulty curve. The `fill` column is the ratio of playable area to its
 bounding rectangle: 1.00 means a bare rectangle, and the lower it goes the more
-worked the plan. The mean across all 108 holes is 0.72 — six are rectangular and
+worked the plan. The mean across all 108 holes is 0.71 — six are rectangular and
 all of them deliberately (there the obstacles come from a wall inside the area,
 not from its outline).
 

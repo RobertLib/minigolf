@@ -243,16 +243,23 @@ func shape(_ level: LevelDefinition) -> Shape {
     // and a hazard is a hole in the hole — counting either would call a ring of
     // green round a pond a solid rectangle.
     let pads = level.floors.filter { !$0.kind.isOverlay && !$0.kind.isHazard }
-    // Union area on a coarse grid: patches may overlap.
+    // Union area on a coarse grid: patches may overlap. Each hit is worth one
+    // whole cell, so the grid has to be cells and not the fence posts between
+    // them: sampling the corners would be a row and a column too many, and every
+    // one of them charged for a full cell the box does not have. That is a few
+    // per cent on a small hole — enough to have reported a bare rectangle as
+    // fill 1.03, more felt than the box it is measured against. So the count is
+    // ceil, without the +1, and the sample sits at the middle of its own cell.
     let area = level.bounds
-    let nx = max(1, Int((area.size.x / cell).rounded(.up)) + 1)
-    let nz = max(1, Int((area.size.y / cell).rounded(.up)) + 1)
+    let nx = max(1, Int((area.size.x / cell).rounded(.up)))
+    let nz = max(1, Int((area.size.y / cell).rounded(.up)))
     var covered = 0
     var heights = Set<Int>()
     for patch in pads where patch.kind == .green { heights.insert(Int(patch.y * 1000)) }
     for iz in 0..<nz {
         for ix in 0..<nx {
-            let p = SIMD2(area.minX + Float(ix) * cell, area.minZ + Float(iz) * cell)
+            let p = SIMD2(area.minX + (Float(ix) + 0.5) * cell,
+                          area.minZ + (Float(iz) + 0.5) * cell)
             if pads.contains(where: { $0.rect.contains(p) }) { covered += 1 }
         }
     }
