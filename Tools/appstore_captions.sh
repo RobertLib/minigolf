@@ -59,9 +59,15 @@ en_caption() {
 
 # Per-device dimensions: canvas, height of the text band, width of the text
 # block, font size. The screenshot is sized to fill the rest below the band.
+#
+# The canvas has to be the size App Store Connect takes for the slot the set is
+# uploaded to, not the size the simulator records — the iphone-6.9 directory
+# holds 1242 × 2688, which is Connect's 6.5" slot (see AppStore/screenshots.md).
+# The band and the type are scaled to the canvas; keep them in proportion if the
+# canvas ever changes, or the caption stops matching the iPad's.
 geometry_for() {
     case "$1" in
-        iphone-6.9) echo "1320 2868 480 1150 96" ;;
+        iphone-6.9) echo "1242 2688 452 1082 90" ;;
         ipad-13)    echo "2064 2752 450 1760 132" ;;
         *)          echo "" ;;
     esac

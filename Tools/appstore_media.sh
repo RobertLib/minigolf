@@ -23,13 +23,28 @@ OUT_ROOT="${OUT_ROOT:-$ROOT/AppStore}"
 WORK="${WORK:-$(mktemp -d -t minigolf-appstore)}"
 BID=cz.rob.Minigolf
 
-IPHONE_NAME="iPhone 17 Pro Max"   # 1320 × 2868 — App Store "iPhone 6.9""
-IPAD_NAME="iPad Pro 13-inch (M5)" # 2064 × 2752 — App Store "iPad 13""
+IPHONE_NAME="iPhone 17 Pro Max"   # records 1320 × 2868
+IPAD_NAME="iPad Pro 13-inch (M5)" # records 2064 × 2752 — App Store "iPad 13""
 
-# App Preview render sizes. The iPhone recording is scaled down a touch and
-# centre-cropped; the iPad is an exact 0.75 aspect match.
-IPHONE_VIDEO_SIZE=(1290 2796)
+# Screenshot upload sizes. The iPhone set goes into Connect's 6.5" slot at
+# 1242 × 2688, which no simulator here records natively — the 6.5" devices are
+# long gone from the runtimes — so the 1320 × 2868 capture is scaled to width and
+# eleven rows are cropped. The iPad records its slot size already. Apple scales
+# a 6.5" set up for the larger displays on its own.
+IPHONE_SHOT_SIZE=(1242 2688)
+IPAD_SHOT_SIZE=(2064 2752)
+
+# App Preview render sizes — these are the only two App Store Connect takes for
+# these devices, and *not* the devices' own resolutions. The iPhone recording is
+# scaled well down and a fraction of a row is cropped; the iPad is an exact 0.75
+# aspect match. See AppStore/screenshots.md before changing either.
+IPHONE_VIDEO_SIZE=(886 1920)
 IPAD_VIDEO_SIZE=(1200 1600)
+
+# Previews must carry stereo AAC at 256 kbps — silence does not satisfy the
+# check — so the game's own menu theme goes under the cut. Override or set it
+# empty to fall back to a (non-compliant) silent track.
+PREVIEW_MUSIC="${PREVIEW_MUSIC-$ROOT/Minigolf/Resources/Music/menu-1.m4a}"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$*"; }
 
@@ -98,8 +113,8 @@ SHOTS=(
     "08-daily|-daily -aimdemo 0.6 -zoom 1.5"
 )
 
-shoot() { # shoot <udid> <locale> <device-dir> <settle>
-    local udid="$1" loc="$2" dev="$3" settle="$4"
+shoot() { # shoot <udid> <locale> <device-dir> <settle> <W> <H>
+    local udid="$1" loc="$2" dev="$3" settle="$4" w="$5" h="$6"
     local dir="$OUT_ROOT/screenshots/$loc/$dev"
     mkdir -p "$dir"
     for entry in "${SHOTS[@]}"; do
@@ -108,6 +123,14 @@ shoot() { # shoot <udid> <locale> <device-dir> <settle>
         launch "$udid" "$loc" $args
         sleep "$settle"
         xcrun simctl io "$udid" screenshot "$dir/$name.png" >/dev/null 2>&1
+        # Scale to the upload size when the capture is not already it. Filling
+        # the box and cropping the overflow, rather than resizing to fit, keeps
+        # the picture undistorted — the two aspect ratios differ a hair.
+        if [ "$(magick identify -format '%wx%h' "$dir/$name.png")" != "${w}x${h}" ]; then
+            magick "$dir/$name.png" -resize "${w}x${h}^" -gravity center \
+                -extent "${w}x${h}" -alpha off -depth 8 -strip "$dir/$name.png.tmp"
+            mv "$dir/$name.png.tmp" "$dir/$name.png"
+        fi
         printf '  %-14s %s\n' "$name" \
             "$(sips -g pixelWidth -g pixelHeight "$dir/$name.png" | awk '/pixel/{printf "%s ", $2}')"
     done
@@ -117,11 +140,13 @@ shoot() { # shoot <udid> <locale> <device-dir> <settle>
 if [ "$MODE" = all ] || [ "$MODE" = screenshots ]; then
     boot_and_install "$IPHONE_UDID"
     boot_and_install "$IPAD_UDID"
+    command -v magick >/dev/null \
+        || { echo "needs ImageMagick to scale the shots (brew install imagemagick)"; exit 1; }
     for loc in cs en-US; do
-        say "Screenshots — iPhone 6.9\" / $loc"
-        shoot "$IPHONE_UDID" "$loc" iphone-6.9 7
+        say "Screenshots — iPhone 6.5\" / $loc"
+        shoot "$IPHONE_UDID" "$loc" iphone-6.9 7 "${IPHONE_SHOT_SIZE[@]}"
         say "Screenshots — iPad 13\" / $loc"
-        shoot "$IPAD_UDID" "$loc" ipad-13 8
+        shoot "$IPAD_UDID" "$loc" ipad-13 8 "${IPAD_SHOT_SIZE[@]}"
     done
 
     if command -v magick >/dev/null; then
@@ -209,6 +234,10 @@ assemble() { # assemble <clipdir> <out.mp4> <W> <H> <cut...>
     local specs=()
     for cut in "$@"; do specs+=("$dir/${cut%%:*}.mp4:${cut#*:}"); done
     swift "$ROOT/Tools/appstore_video.swift" "$out" "$w" "$h" "${specs[@]}"
+    # What comes out of the cut is the right size but the wrong everything else
+    # for App Store Connect — too high a profile, too fast a bit rate and no
+    # audio at all. This pins the lot to Apple's table.
+    swift "$ROOT/Tools/appstore_conform.swift" "$out" "$w" "$h" ${PREVIEW_MUSIC:+"$PREVIEW_MUSIC"}
 }
 
 if [ "$MODE" = all ] || [ "$MODE" = video ]; then

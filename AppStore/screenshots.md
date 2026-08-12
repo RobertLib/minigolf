@@ -8,13 +8,13 @@ and Screenshots* section (language switch at the top, one locale at a time).
 
 | What | Where | Resolution | Count |
 |---|---|---|---|
-| iPhone 6.9" screenshots | `screenshots/<locale>/iphone-6.9/` | 1320 × 2868 | 8 |
+| iPhone screenshots | `screenshots/<locale>/iphone-6.9/` | 1242 × 2688 (6.5" slot) | 8 |
 | iPad 13" screenshots | `screenshots/<locale>/ipad-13/` | 2064 × 2752 | 8 |
 | The same with captions | `screenshots-captioned/<locale>/<device>/` | same | 8 + 8 |
-| iPhone 6.9" App Preview | `preview/<locale>/iphone-6.9.mp4` | 1290 × 2796, 30 fps, 24.9 s | 1 |
-| iPad 13" App Preview | `preview/<locale>/ipad-13.mp4` | 1200 × 1600, 30 fps, 24.7 s | 1 |
+| iPhone App Preview | `preview/<locale>/iphone-6.9.mp4` | 886 × 1920, 30 fps, 24.9 s, AAC | 1 |
+| iPad 13" App Preview | `preview/<locale>/ipad-13.mp4` | 1200 × 1600, 30 fps, 24.7 s, AAC | 1 |
 
-86 MB of screenshots, 80 MB for the captioned variant and 129 MB of video in total.
+84 MB of screenshots, 79 MB for the captioned variant and 130 MB of video in total.
 
 ```bash
 Tools/appstore_media.sh              # screenshots and videos (~20 min)
@@ -56,19 +56,54 @@ release on the matching tag — that keeps them out of the repository history.
 The app targets iPhone and iPad (`TARGETED_DEVICE_FAMILY = "1,2"`), so **two sets**
 of screenshots are mandatory. Apple derives the smaller sizes itself.
 
-| Set | Resolution (portrait) | Resolution (landscape) | Count |
+| Slot | Resolution (portrait) | Resolution (landscape) | Count |
 |---|---|---|---|
-| iPhone 6.9" | 1290 × 2796 or 1320 × 2868 | 2796 × 1290 or 2868 × 1320 | 3–10 |
+| iPhone 6.9" | 1260 × 2736, 1290 × 2796 or 1320 × 2868 | the same, transposed | 3–10 |
+| **iPhone 6.5"** ← what we upload | 1284 × 2778 or **1242 × 2688** | the same, transposed | 3–10 |
 | iPad 13" | 2048 × 2732 or 2064 × 2752 | 2732 × 2048 or 2752 × 2064 | 3–10 |
+
+**The iPhone set is 1242 × 2688 — the 6.5" slot — not the 6.9" one.** Apple scales
+a 6.5" set up for the larger displays on its own, and Connect is where that choice
+shows up, so check the slot you are dropping files into before regenerating at
+another size. The directory is still called `iphone-6.9`, from when the set was
+built for that slot; the size in the table above is what rules.
+
+No simulator here records 1242 × 2688 — the 6.5" devices are gone from the
+runtimes — so `appstore_media.sh` scales the 1320 × 2868 capture down to width and
+crops eleven rows. The two aspect ratios differ by 0.4%, which is why it crops
+rather than resizing to fit: a fit would squash the picture instead.
 
 PNG or JPEG, no transparency, no rounded corners, no device frame (a frame is
 allowed, but it has to be part of the image and must not cover the content). They
 are ordered the way you upload them — **the first two are all most people will
 ever see** in search results.
 
-The App Preview is optional, 15–30 s, H.264 or ProRes 422 HQ, 30 fps. Sound is not
-required and the finished videos have none — the simulator does not record audio
-and a voiceover would have to be localised anyway.
+The App Preview is optional, and its specification is stricter than the one for
+screenshots — every line of it is enforced on upload, so it is worth reading as
+a checklist rather than as advice:
+
+| | |
+|---|---|
+| Resolution | **iPhone 886 × 1920, iPad 13" 1200 × 1600** (portrait) |
+| Video | H.264 **High Profile Level 4.0**, progressive, 30 fps — or ProRes 422 HQ |
+| Bit rate | 10–12 Mbps VBR (H.264) |
+| Audio | stereo AAC, **256 kbps**, 44.1 or 48 kHz — **required** |
+| Length | 15–30 s, at most 500 MB, `.mp4` / `.m4v` / `.mov` |
+
+Two of those cost an upload each to learn. **The preview is not the device's own
+resolution** — 886 × 1920 is the accepted portrait size, and a file at 1290 × 2796
+is refused however good it looks. One thing that is *not* a trap here: unlike the
+screenshots, the video does not care which iPhone slot it goes into. Apple lists
+886 × 1920 for the 6.9", 6.5", 6.3" and 6.1" displays alike, so the same file
+serves all of them. And **Level 4.0 is a ceiling**: at
+the device's resolution the encoder has to reach Level 5.0, which is out of spec on
+its own. Audio is the third: the simulator records none, and Connect treats a file
+with no usable audio as an unsupported audio *configuration* — which is why the
+error it reports mentions audio even when the real problem is the picture. A silent
+track does not buy you out of it either, because AAC compresses digital silence to
+about 2 kbps against the 256 kbps asked for. The previews therefore carry the
+game's own menu theme, and [`Tools/appstore_conform.swift`](../Tools/appstore_conform.swift)
+pins every row of the table above.
 
 ## The set (8 images)
 
@@ -196,6 +231,34 @@ The simulator records at ~72 fps, which App Store Connect rejects;
 [`Tools/appstore_video.swift`](../Tools/appstore_video.swift) recuts the recording,
 scales it to the target resolution and exports H.264 at 30 fps.
 
+What comes out of that step is the right size and nothing else Connect wants: the
+export preset picks its own profile and bit rate, and there is no audio at all.
+[`Tools/appstore_conform.swift`](../Tools/appstore_conform.swift) rewrites the file
+in place against the table at the top — High 4.0, inside the 10–12 Mbps band, with
+a stereo AAC music bed at 256 kbps:
+
+```bash
+swift Tools/appstore_conform.swift AppStore/preview/en-US/iphone-6.9.mp4 886 1920 \
+    Minigolf/Resources/Music/menu-1.m4a
+```
+
+The music is looped to the length of the cut and faded at both ends; a fourth
+argument sets the gain (0.7 by default). Leave the file out and the track is silent
+— which the tool still writes, but Connect will not accept it, so the argument is
+effectively required. `appstore_media.sh` passes
+`Minigolf/Resources/Music/menu-1.m4a` unless `PREVIEW_MUSIC` says otherwise. The
+music ships with the app under its own licence (see the credits) — the trailer is
+a second use of it, and the attribution goes with it.
+
+The bit rate is asked for high and lands lower: 14 Mbps requested measures 10.2–10.9
+across the four previews, because the encoder treats the number as a ceiling. Asking
+for the middle of Apple's band puts the result under the floor, so do not "correct"
+that constant downwards without measuring what comes out.
+
+The picture is re-encoded here, which is unavoidable — the profile and the size both
+have to change — so this is the one lossy step in the chain. It is also why the cut
+is worth checking *before* conforming rather than after.
+
 One trap lives in that step, and it costs an hour to find because the export
 reports success. The rating clip is the only recording that never moves, so the
 encoder gives it a very long GOP; asking for a range that starts mid-GOP is fine
@@ -207,10 +270,11 @@ finished file catches it. Hence `r6-rating:0.0:…`: starting on the keyframe is
 what makes it render, and the screen is identical throughout anyway. Any future
 clip of a still screen needs the same treatment.
 
-The iPhone video is 1290 × 2796 — the simulator recording (1320 × 2868) has
-a marginally different aspect ratio, so it is scaled to width and a few rows are
-cropped top and bottom to keep the image undistorted. Should App Store Connect
-insist on something else at this resolution, force a regeneration:
+The iPhone video is 886 × 1920, a long way down from the 1320 × 2868 recording, and
+the two aspect ratios differ by a rounding error — so it is scaled to width and
+a fraction of a row is cropped top and bottom to keep the image undistorted. That
+size is not a choice; it is the only one Connect accepts for 6.9". Should Apple's
+table change, force a regeneration at another size:
 
 ```bash
 swift Tools/appstore_video.swift out.mp4 1320 2868 <clip>:<from>:<to> …
